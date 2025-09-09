@@ -1,39 +1,42 @@
-import { Metadata } from "next";
+import { Metadata } from 'next';
 
 export const SITE_CONFIG: Metadata = {
-    title: {
-        // write a default title for astra a ai powered website builder suggest something unique and catchy don't use the same words of ai powered website builder give a unique name
-        default: "Astra - AI Powered Website Builder",
-        template: `%s | Astra`
-    },
-    description: "Astra is an AI powered website builder that helps you create a website in minutes. No coding skills required. Get started for free!",
-    icons: {
-        icon: [
-            {
-                url: "/icons/favicon.ico",
-                href: "/icons/favicon.ico",
-            }
-        ]
-    },
-    openGraph: {
-        title: "Astra - AI Powered Website Builder",
-        description: "Astra is an AI powered website builder that helps you create a website in minutes. No coding skills required. Get started for free!",
-        images: [
-            {
-                url: "/assets/og-image.png",
-            }
-        ]
-    },
-    twitter: {
-        card: "summary_large_image",
-        creator: "@shreyassihasane",
-        title: "Astra - AI Powered Website Builder",
-        description: "Astra is an AI powered website builder that helps you create a website in minutes. No coding skills required. Get started for free!",
-        images: [
-            {
-                url: "/assets/og-image.png",
-            }
-        ]
-    },
-    metadataBase: new URL("https://astra-app.vercel.app"),
+  title: {
+    // Unique and catchy default title for Klientel
+    default: 'Klientel – Smarter Client Management, Faster Growth',
+    template: `%s | Klientel`,
+  },
+  description:
+    'Klientel is a credit-based CRM that helps you manage clients, track pipelines, and grow your business with ease. Close deals faster, stay organized, and build lasting client relationships.',
+  icons: {
+    icon: [
+      {
+        url: '/icons/favicon.ico',
+        href: '/icons/favicon.ico',
+      },
+    ],
+  },
+  openGraph: {
+    title: 'Klientel – Smarter Client Management, Faster Growth',
+    description:
+      'Klientel is a credit-based CRM that helps you manage clients, track pipelines, and grow your business with ease. Close deals faster, stay organized, and build lasting client relationships.',
+    images: [
+      {
+        url: '/assets/og-image.png',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    creator: '@yourtwitterhandle', // update with your actual handle
+    title: 'Klientel – Smarter Client Management, Faster Growth',
+    description:
+      'Klientel is a credit-based CRM that helps you manage clients, track pipelines, and grow your business with ease. Close deals faster, stay organized, and build lasting client relationships.',
+    images: [
+      {
+        url: '/assets/og-image.png',
+      },
+    ],
+  },
+  metadataBase: new URL('https://klientel.vercel.app'),
 };

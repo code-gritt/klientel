@@ -1,145 +1,160 @@
-import { Icons } from "@/components";
+import { Icons } from '@/components';
 
 export const perks = [
-    {
-        icon: Icons.auth,
-        title: "Sign Up",
-        info: "Create your free account to get started with Astra.",
-    },
-    {
-        icon: Icons.customize,
-        title: "Customize",
-        info: "Choose a template and customize it to fit your needs.",
-    },
-    {
-        icon: Icons.launch,
-        title: "Launch",
-        info: "Publish your website and share it with the world.",
-    },
+  {
+    icon: Icons.auth,
+    title: 'Sign Up',
+    info: 'Create your free Klientel account and instantly receive 100 credits to get started.',
+  },
+  {
+    icon: Icons.customize,
+    title: 'Organize',
+    info: 'Import leads via CSV or add them manually. Categorize and customize pipelines to fit your sales process.',
+  },
+  {
+    icon: Icons.launch,
+    title: 'Close Deals',
+    info: 'Track, nurture, and convert prospects into loyal customers using Klientel’s streamlined CRM tools.',
+  },
 ];
 
 export const features = [
-    {
-        icon: Icons.bolt,
-        title: "Fast Setup",
-        info: "Get your website up and running in minutes with our intuitive AI-powered builder.",
-    },
-    {
-        icon: Icons.palette,
-        title: "Customizable Templates",
-        info: "Choose from a variety of stunning templates and customize them to suit your brand.",
-    },
-    {
-        icon: Icons.seo,
-        title: "SEO Optimized",
-        info: "Built-in SEO features ensure your website ranks well on search engines.",
-    },
-    {
-        icon: Icons.monitor,
-        title: "Responsive Design",
-        info: "Your website will look great on any device, from desktops to mobile phones.",
-    },
-    {
-        icon: Icons.shop,
-        title: "E-Commerce Ready",
-        info: "Start selling online with our e-commerce features and integrations.",
-    },
-    {
-        icon: Icons.server,
-        title: "Secure Hosting",
-        info: "Enjoy peace of mind with secure and reliable hosting for your website.",
-    },
+  {
+    icon: Icons.bolt,
+    title: 'Quick Lead Management',
+    info: 'Add, search, and update leads with ease. Import bulk data via CSV and stay organized with categories and notes.',
+  },
+  {
+    icon: Icons.palette,
+    title: 'Custom Sales Pipelines',
+    info: 'Visualize your process with drag-and-drop Kanban boards. Move deals across stages like New, Contacted, and Closed.',
+  },
+  {
+    icon: Icons.seo,
+    title: 'Actionable Analytics',
+    info: 'Track conversion rates, deal values, and forecasted revenue with interactive charts and simple exports.',
+  },
+  {
+    icon: Icons.monitor,
+    title: 'Responsive Dashboard',
+    info: 'Work seamlessly on desktop, tablet, or mobile—your CRM adapts to your workflow wherever you are.',
+  },
+  {
+    icon: Icons.shop,
+    title: 'Credits-Based Access',
+    info: 'Start free with 100 credits. Deduct small amounts for lead imports or premium exports and top up via PayPal anytime.',
+  },
+  {
+    icon: Icons.server,
+    title: 'Secure & Reliable',
+    info: 'Protected with JWT authentication and backed by modern infrastructure to keep your data safe and accessible.',
+  },
 ];
 
 export const pricingCards = [
-    {
-        title: "Starter",
-        description: "Perfect for trying out plura",
-        price: "Free",
-        duration: "",
-        highlight: "Key features",
-        buttonText: "Start for free",
-        features: ["Limited projects", "1 Team member", "Basic features"],
-        priceId: "",
-    },
-    {
-        title: "Unlimited Saas",
-        description: "The ultimate agency kit",
-        price: "$199",
-        duration: "month",
-        highlight: "Key features",
-        buttonText: "Upgrade to Pro",
-        features: ["Unlimited projects", "5 Team members", "Advanced design tools", "Customizable domain"],
-        priceId: "price_1OYxkqFj9oKEERu1KfJGWxgN",
-    },
-    {
-        title: "Enterprise",
-        description: "For serious agency owners",
-        price: "$399",
-        duration: "month",
-        highlight: "Everything in Starter, plus",
-        buttonText: "Upgrade to Enterprise",
-        features: ["Unlimited projects", "Unlimited Team members", "Custom branding", "Priority support (24/7)"],
-        priceId: "price_1OYxkqFj9oKEERu1NbKUxXxN",
-    },
+  {
+    title: 'Starter',
+    description: 'Perfect for freelancers and solopreneurs',
+    price: 'Free',
+    duration: '',
+    highlight: 'Includes',
+    buttonText: 'Start for free',
+    features: [
+      '100 credits included',
+      'Lead management',
+      'Basic pipeline',
+      'Full-text search',
+    ],
+    priceId: '',
+  },
+  {
+    title: 'Growth',
+    description: 'For growing sales teams',
+    price: '$29',
+    duration: 'month',
+    highlight: 'Includes everything in Starter, plus',
+    buttonText: 'Upgrade to Growth',
+    features: [
+      '1,000 credits per month',
+      'Multiple pipelines',
+      'Analytics dashboard',
+      'CSV export',
+    ],
+    priceId: 'price_1OYxkqFj9oKEERu1KfJGWxgN',
+  },
+  {
+    title: 'Enterprise',
+    description: 'For established businesses scaling sales',
+    price: '$99',
+    duration: 'month',
+    highlight: 'Includes everything in Growth, plus',
+    buttonText: 'Upgrade to Enterprise',
+    features: [
+      'Unlimited credits',
+      'Team collaboration',
+      'Custom branding',
+      'Priority support (24/7)',
+    ],
+    priceId: 'price_1OYxkqFj9oKEERu1NbKUxXxN',
+  },
 ];
 
 export const bentoCards = [
-    {
-        title: 'Start with Inspiration',
-        info: 'Browse our vast library of pre-designed templates or upload your own images.',
-        imgSrc: '/assets/bento-1.svg', // Lightbulb or Inspiration icon
-        alt: 'Inspiration for website creation'
-    },
-    {
-        title: 'AI Assists Your Vision',
-        info: 'Our intelligent AI tailors suggestions and functionalities based on your goals.',
-        imgSrc: '/assets/bento1.svg', // AI Assistant icon
-        alt: 'AI website building assistant'
-    },
-    {
-        title: 'Drag & Drop Customization',
-        info: 'Effortlessly personalize your website with our intuitive drag-and-drop editor.',
-        imgSrc: '/assets/bento1.svg', // Drag and Drop icon or hand editing a website
-        alt: 'Website customization with drag and drop'
-    },
-    {
-        title: 'Launch & Shine Online',
-        info: 'Publish your website with a single click and take your brand to the world.',
-        imgSrc: '/assets/bento1.svg', // Rocket launching or website going live
-        alt: 'Website launch and publication'
-    },
+  {
+    title: 'Capture & Organize Leads',
+    info: 'Add leads manually or via bulk upload, complete with notes, categories, and statuses.',
+    imgSrc: '/assets/bento-1.svg',
+    alt: 'Lead management system',
+  },
+  {
+    title: 'Visual Sales Pipelines',
+    info: 'Manage your deals with drag-and-drop Kanban boards for every stage of the sales journey.',
+    imgSrc: '/assets/bento1.svg',
+    alt: 'Sales pipeline visualization',
+  },
+  {
+    title: 'Search & Navigate Fast',
+    info: 'Use Command-K or full-text search to instantly find leads, deals, or pipeline stages.',
+    imgSrc: '/assets/bento1.svg',
+    alt: 'CRM quick search navigation',
+  },
+  {
+    title: 'Analyze & Scale',
+    info: 'Get insights into conversions, revenue forecasts, and lead sources. Export reports anytime.',
+    imgSrc: '/assets/bento1.svg',
+    alt: 'Analytics and reporting in CRM',
+  },
 ];
 
 export const reviews = [
-    {
-        name: "Jack",
-        username: "@jack",
-        body: "I've never seen anything like this before. It's amazing. I love it.",
-    },
-    {
-        name: "Jill",
-        username: "@jill",
-        body: "I don't know what to say. I'm speechless. This is amazing.",
-    },
-    {
-        name: "John",
-        username: "@john",
-        body: "I'm at a loss for words. This is amazing. I love it.",
-    },
-    {
-        name: "Jane",
-        username: "@jane",
-        body: "I'm at a loss for words. This is amazing. I love it.",
-    },
-    {
-        name: "Jenny",
-        username: "@jenny",
-        body: "I'm at a loss for words. This is amazing. I love it.",
-    },
-    {
-        name: "James",
-        username: "@james",
-        body: "I'm at a loss for words. This is amazing. I love it.",
-    },
+  {
+    name: 'Lena',
+    username: '@lena_sales',
+    body: 'Klientel keeps my freelance projects organized. The pipeline view is simple but powerful.',
+  },
+  {
+    name: 'Marc',
+    username: '@marc_b2b',
+    body: 'Finally a CRM without the fluff. Easy to use, credits system is fair, and PayPal top-ups are smooth.',
+  },
+  {
+    name: 'Sofia',
+    username: '@sofia_team',
+    body: 'Our small team closed more deals after moving to Klientel. The analytics tab is a game changer.',
+  },
+  {
+    name: 'Jonas',
+    username: '@jonas_startup',
+    body: 'We imported 2,000 leads in minutes and were up and running instantly. Klientel makes scaling painless.',
+  },
+  {
+    name: 'Katrin',
+    username: '@katrin_agency',
+    body: 'Managing multiple client pipelines is finally simple. Exports are quick and clients love the reports.',
+  },
+  {
+    name: 'Felix',
+    username: '@felix_growth',
+    body: 'The Command-K search saves me hours each week. Everything is just a few keystrokes away.',
+  },
 ];
