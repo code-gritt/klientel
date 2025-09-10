@@ -1,34 +1,42 @@
-import graphene# type: ignore
-from graphene_sqlalchemy import SQLAlchemyObjectType # type: ignore
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
+import graphene  # type: ignore
+from graphene_sqlalchemy import SQLAlchemyObjectType  # type: ignore
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity  # type: ignore
 from models import User, Lead, Activity, Note, db
-from sqlalchemy.sql import func# type: ignore
+from sqlalchemy.sql import func  # type: ignore
 from datetime import datetime
 import os
-from google.generativeai import GenerativeModel, configure# type: ignore
+from google.generativeai import GenerativeModel, configure  # type: ignore
 
 # Configure Gemini API
 configure(api_key="AIzaSyDqxbID4YBbRnVrVMfvuAgRLAyrjG-hs48")
 
+
+# --------------------
+# GraphQL Types
+# --------------------
 class UserType(SQLAlchemyObjectType):
     class Meta:
         model = User
-        only_fields = ('id', 'email', 'credits', 'created_at')
+        only_fields = ("id", "email", "credits", "created_at")
+
 
 class LeadType(SQLAlchemyObjectType):
     class Meta:
         model = Lead
-        only_fields = ('id', 'user_id', 'name', 'email', 'status', 'created_at')
+        only_fields = ("id", "user_id", "name", "email", "status", "created_at")
+
 
 class ActivityType(SQLAlchemyObjectType):
     class Meta:
         model = Activity
-        only_fields = ('id', 'user_id', 'action', 'created_at')
+        only_fields = ("id", "user_id", "action", "created_at")
+
 
 class NoteType(SQLAlchemyObjectType):
     class Meta:
         model = Note
-        only_fields = ('id', 'lead_id', 'user_id', 'content', 'created_at')
+        only_fields = ("id", "lead_id", "user_id", "content", "created_at")
+
 
 class PipelineMetricsType(graphene.ObjectType):
     status = graphene.String()
@@ -36,28 +44,36 @@ class PipelineMetricsType(graphene.ObjectType):
     conversion_rate = graphene.Float()
     avg_time_in_stage = graphene.Float()
 
+
+# --------------------
+# Inputs
+# --------------------
 class RegisterInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     password = graphene.String(required=True)
+
 
 class LeadInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     email = graphene.String(required=True)
     status = graphene.String()
 
+
 class NoteInput(graphene.InputObjectType):
     content = graphene.String(required=True)
+
 
 class ChatbotInput(graphene.InputObjectType):
     query = graphene.String(required=True)
 
-class ChatbotResponse(graphene.ObjectType):
-    response = graphene.String()
 
+# --------------------
+# Mutations
+# --------------------
 class RegisterMutation(graphene.Mutation):
     class Arguments:
         input = RegisterInput(required=True)
-    
+
     user = graphene.Field(UserType)
     access_token = graphene.String()
 
@@ -71,14 +87,16 @@ class RegisterMutation(graphene.Mutation):
         access_token = create_access_token(identity=str(user.id))
         return RegisterMutation(user=user, access_token=access_token)
 
+
 class LoginInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     password = graphene.String(required=True)
 
+
 class LoginMutation(graphene.Mutation):
     class Arguments:
         input = LoginInput(required=True)
-    
+
     user = graphene.Field(UserType)
     access_token = graphene.String()
 
@@ -86,8 +104,9 @@ class LoginMutation(graphene.Mutation):
         user = User.query.filter_by(email=input.email).first()
         if not user or not user.check_password(input.password):
             raise Exception("Invalid credentials")
-        access_token = create_access_token(identity=str(user.id)) 
+        access_token = create_access_token(identity=str(user.id))
         return LoginMutation(user=user, access_token=access_token)
+
 
 class CreateLeadMutation(graphene.Mutation):
     class Arguments:
@@ -114,6 +133,7 @@ class CreateLeadMutation(graphene.Mutation):
         db.session.commit()
         return CreateLeadMutation(lead=lead)
 
+
 class UpdateLeadMutation(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
@@ -139,6 +159,7 @@ class UpdateLeadMutation(graphene.Mutation):
         db.session.commit()
         return UpdateLeadMutation(lead=lead)
 
+
 class DeleteLeadMutation(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
@@ -156,6 +177,7 @@ class DeleteLeadMutation(graphene.Mutation):
         db.session.delete(lead)
         db.session.commit()
         return DeleteLeadMutation(success=True)
+
 
 class CreateNoteMutation(graphene.Mutation):
     class Arguments:
@@ -181,6 +203,7 @@ class CreateNoteMutation(graphene.Mutation):
         db.session.commit()
         return CreateNoteMutation(note=note)
 
+
 class DeleteNoteMutation(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
@@ -200,51 +223,59 @@ class DeleteNoteMutation(graphene.Mutation):
         db.session.commit()
         return DeleteNoteMutation(success=True)
 
+
 class ChatbotMutation(graphene.Mutation):
     class Arguments:
         input = ChatbotInput(required=True)
 
-    response = graphene.Field(ChatbotResponse)
+    response = graphene.String()  # <-- direct string instead of object
 
     @jwt_required()
     def mutate(self, info, input):
         user_id = int(get_jwt_identity())
+
         KLIENTEL_INFO = """
         Klientel is a modern CRM solution designed to streamline lead management, pipeline tracking, and analytics. Features include:
-        - Lead Management: Create, update, and delete leads with name, email, and status (New, Contacted, Qualified, Closed).
-        - Pipeline Tracking: Visualize lead progression through stages with a Kanban-style board.
-        - Analytics: View metrics like lead count, conversion rates, and average time in each stage.
-        - Recent Activities: Track user actions like creating/updating/deleting leads and adding/deleting notes.
-        - Notes: Add and manage notes for individual leads.
-        - Command+K Search: Quickly navigate to leads, notes, or pages (dashboard, pipelines, analytics).
-        The dashboard displays leads, recent activities, and analytics. Users must sign in to access the dashboard.
+        - Lead Management
+        - Pipeline Tracking
+        - Analytics
+        - Recent Activities
+        - Notes
+        - Command+K Search
         """
 
-        # Fetch recent activities
-        recent_activities = Activity.query.filter_by(user_id=user_id).order_by(Activity.created_at.desc()).limit(10).all()
-        activities_text = '\n'.join([f"{activity.action} at {activity.created_at.strftime('%Y-%m-%d %H:%M:%S')}" for activity in recent_activities]) or "No recent activities available."
+        recent_activities = (
+            Activity.query.filter_by(user_id=user_id)
+            .order_by(Activity.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        activities_text = "\n".join(
+            [f"{a.action} at {a.created_at.strftime('%Y-%m-%d %H:%M:%S')}" for a in recent_activities]
+        ) or "No recent activities available."
 
         prompt = f"""
-        You are KlientelBot, a minimalistic AI assistant for Klientel, a modern CRM platform. Answer queries concisely and accurately in a friendly, futuristic tone based on the following information:
-
+        You are KlientelBot, a minimalistic AI assistant for Klientel CRM.
+        Info:
         {KLIENTEL_INFO}
 
         Recent Activities:
         {activities_text}
 
         User Query: {input.query}
-
-        If the query is unrelated to Klientel, politely redirect to Klientel-related topics.
         """
 
         try:
-            model = GenerativeModel('gemini-1.5-flash')
+            model = GenerativeModel("gemini-1.5-flash")
             result = model.generate_content(prompt)
-            response_text = result.text
-            return ChatbotMutation(response=ChatbotResponse(response=response_text))
+            return ChatbotMutation(response=result.text)
         except Exception as e:
             raise Exception(f"Failed to generate response: {str(e)}")
 
+
+# --------------------
+# Query
+# --------------------
 class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
@@ -265,18 +296,23 @@ class Query(graphene.ObjectType):
     @jwt_required()
     def resolve_activities(self, info, limit):
         user_id = get_jwt_identity()
-        return Activity.query.filter_by(user_id=user_id).order_by(Activity.created_at.desc()).limit(limit).all()
+        return (
+            Activity.query.filter_by(user_id=user_id)
+            .order_by(Activity.created_at.desc())
+            .limit(limit)
+            .all()
+        )
 
     @jwt_required()
     def resolve_pipeline_metrics(self, info):
         user_id = get_jwt_identity()
-        stages = ['New', 'Contacted', 'Qualified', 'Closed']
+        stages = ["New", "Contacted", "Qualified", "Closed"]
         metrics = []
 
         lead_counts = (
             Lead.query.filter_by(user_id=user_id)
             .group_by(Lead.status)
-            .with_entities(Lead.status, func.count(Lead.id).label('count'))
+            .with_entities(Lead.status, func.count(Lead.id).label("count"))
             .all()
         )
         lead_count_dict = {status: count for status, count in lead_counts}
@@ -300,37 +336,45 @@ class Query(graphene.ObjectType):
                 total_days = 0
                 count_changes = 0
                 for change in status_changes:
-                    lead_id = change.action.split('lead: ')[1].split(';')[0]
                     next_changes = (
                         Activity.query.filter_by(user_id=user_id)
                         .filter(Activity.created_at > change.created_at)
-                        .filter(
-                            (Activity.action.contains(f"Changed status from {status}")) |
-                            (Activity.action.contains(f"Deleted lead: {lead_id}"))
-                        )
                         .order_by(Activity.created_at.asc())
                         .first()
                     )
                     if next_changes:
-                        time_diff = (next_changes.created_at - change.created_at).total_seconds() / (60 * 60 * 24)
+                        time_diff = (
+                            (next_changes.created_at - change.created_at).total_seconds()
+                            / (60 * 60 * 24)
+                        )
                         total_days += time_diff
                         count_changes += 1
                 avg_time = total_days / count_changes if count_changes > 0 else 0.0
 
-            metrics.append({
-                'status': status,
-                'lead_count': count,
-                'conversion_rate': round(conversion_rate, 2),
-                'avg_time_in_stage': round(avg_time, 2),
-            })
+            metrics.append(
+                {
+                    "status": status,
+                    "lead_count": count,
+                    "conversion_rate": round(conversion_rate, 2),
+                    "avg_time_in_stage": round(avg_time, 2),
+                }
+            )
 
         return [PipelineMetricsType(**metric) for metric in metrics]
 
     @jwt_required()
     def resolve_notes(self, info, lead_id):
         user_id = get_jwt_identity()
-        return Note.query.filter_by(lead_id=lead_id, user_id=user_id).order_by(Note.created_at.desc()).all()
+        return (
+            Note.query.filter_by(lead_id=lead_id, user_id=user_id)
+            .order_by(Note.created_at.desc())
+            .all()
+        )
 
+
+# --------------------
+# Schema
+# --------------------
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()
@@ -340,5 +384,6 @@ class Mutation(graphene.ObjectType):
     createNote = CreateNoteMutation.Field()
     deleteNote = DeleteNoteMutation.Field()
     chatbot = ChatbotMutation.Field()
+
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

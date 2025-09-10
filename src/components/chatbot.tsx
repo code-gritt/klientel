@@ -1,23 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import {
+  AwaitedReactNode,
+  JSXElementConstructor,
+  Key,
+  ReactElement,
+  ReactNode,
+  ReactPortal,
+  useState,
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useChatbotStore } from '@/store/chatbot-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, MessageCircle, X } from 'lucide-react';
 import { LoaderFour } from './ui/loader';
+import { useChatStore } from '@/store/chatbot-store';
 
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
-  const { messages, isLoading, sendMessage, clearMessages } = useChatbotStore();
+  const { messages, sendMessage } = useChatStore();
   const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-    await sendMessage(input);
+    setIsLoading(true);
+    // TODO: replace with actual auth token from your store
+    const token = localStorage.getItem('token') || '';
+    await sendMessage(input, token);
     setInput('');
+    setIsLoading(false);
   };
 
   return (
@@ -39,6 +52,7 @@ export function Chatbot() {
           </motion.div>
         )}
       </AnimatePresence>
+
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -48,6 +62,7 @@ export function Chatbot() {
             transition={{ duration: 0.3 }}
             className="bg-background/50 backdrop-blur-lg border border-border/80 rounded-lg shadow-lg w-80 md:w-96 h-[500px] flex flex-col"
           >
+            {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-border/80">
               <h3 className="text-lg font-semibold text-foreground/80">
                 KlientelBot
@@ -57,45 +72,64 @@ export function Chatbot() {
                 size="sm"
                 onClick={() => {
                   setIsOpen(false);
-                  clearMessages();
                 }}
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
+
+            {/* Messages */}
             <div className="flex-1 p-4 overflow-y-auto space-y-4">
               {messages.length === 0 && (
                 <p className="text-center text-muted-foreground">
                   Ask me about Klientel or your recent activities!
                 </p>
               )}
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${
-                    message.isUser ? 'justify-end' : 'justify-start'
-                  }`}
-                >
+              {messages.map(
+                (
+                  message: {
+                    role: string;
+                    content:
+                      | string
+                      | number
+                      | bigint
+                      | boolean
+                      | ReactElement<any, string | JSXElementConstructor<any>>
+                      | Iterable<ReactNode>
+                      | ReactPortal
+                      | Promise<AwaitedReactNode>
+                      | null
+                      | undefined;
+                  },
+                  idx: Key | null | undefined
+                ) => (
                   <div
-                    className={`max-w-[70%] p-3 rounded-lg ${
-                      message.isUser
-                        ? 'bg-primary/80 text-foreground'
-                        : 'bg-background/80 text-foreground/80'
+                    key={idx}
+                    className={`flex ${
+                      message.role === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    <p>{message.content}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {message.timestamp}
-                    </span>
+                    <div
+                      className={`max-w-[70%] p-3 rounded-lg ${
+                        message.role === 'user'
+                          ? 'bg-primary/80 text-foreground'
+                          : 'bg-background/80 text-foreground/80'
+                      }`}
+                    >
+                      <p>{message.content}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
+
               {isLoading && (
                 <div className="flex justify-center">
                   <LoaderFour />
                 </div>
               )}
             </div>
+
+            {/* Input */}
             <form
               onSubmit={handleSend}
               className="p-4 border-t border-border/80 flex gap-2"
