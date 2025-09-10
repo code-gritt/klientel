@@ -1,34 +1,27 @@
 'use client';
 
-import {
-  AwaitedReactNode,
-  JSXElementConstructor,
-  Key,
-  ReactElement,
-  ReactNode,
-  ReactPortal,
-  useState,
-} from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Send, MessageCircle, X } from 'lucide-react';
 import { LoaderFour } from './ui/loader';
 import { useChatStore } from '@/store/chatbot-store';
+import { useAuthStore } from '@/store/auth-store'; // ✅ import auth store
 
 export function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const { messages, sendMessage } = useChatStore();
+  const { token } = useAuthStore(); // ✅ get token from auth store
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !token) return; // ✅ ensure token exists
+
     setIsLoading(true);
-    // TODO: replace with actual auth token from your store
-    const token = localStorage.getItem('token') || '';
-    await sendMessage(input, token);
+    await sendMessage(input, token); // ✅ now passing token
     setInput('');
     setIsLoading(false);
   };
@@ -70,9 +63,7 @@ export function Chatbot() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  setIsOpen(false);
-                }}
+                onClick={() => setIsOpen(false)}
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -85,42 +76,25 @@ export function Chatbot() {
                   Ask me about Klientel or your recent activities!
                 </p>
               )}
-              {messages.map(
-                (
-                  message: {
-                    role: string;
-                    content:
-                      | string
-                      | number
-                      | bigint
-                      | boolean
-                      | ReactElement<any, string | JSXElementConstructor<any>>
-                      | Iterable<ReactNode>
-                      | ReactPortal
-                      | Promise<AwaitedReactNode>
-                      | null
-                      | undefined;
-                  },
-                  idx: Key | null | undefined
-                ) => (
+
+              {messages.map((message, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                  }`}
+                >
                   <div
-                    key={idx}
-                    className={`flex ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
+                    className={`max-w-[70%] p-3 rounded-lg ${
+                      message.role === 'user'
+                        ? 'bg-primary/80 text-foreground'
+                        : 'bg-background/80 text-foreground/80'
                     }`}
                   >
-                    <div
-                      className={`max-w-[70%] p-3 rounded-lg ${
-                        message.role === 'user'
-                          ? 'bg-primary/80 text-foreground'
-                          : 'bg-background/80 text-foreground/80'
-                      }`}
-                    >
-                      <p>{message.content}</p>
-                    </div>
+                    <p>{message.content}</p>
                   </div>
-                )
-              )}
+                </div>
+              ))}
 
               {isLoading && (
                 <div className="flex justify-center">
@@ -140,7 +114,11 @@ export function Chatbot() {
                 placeholder="Ask KlientelBot..."
                 className="flex-1 focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
               />
-              <Button type="submit" disabled={isLoading} className="p-2">
+              <Button
+                type="submit"
+                disabled={isLoading || !token}
+                className="p-2"
+              >
                 <Send className="w-4 h-4" />
               </Button>
             </form>
