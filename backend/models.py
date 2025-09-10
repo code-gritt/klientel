@@ -59,3 +59,21 @@ class Activity(db.Model):
             "action": self.action,
             "createdAt": self.created_at.isoformat(),
         }
+    
+class Note(db.Model):
+    __tablename__ = "notes"
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "lead_id": self.lead_id,
+            "user_id": self.user_id,
+            "content": self.content,
+            "createdAt": self.created_at.isoformat(),
+        }
+    
