@@ -1,31 +1,59 @@
-import graphene # type: ignore
-from graphene_sqlalchemy import SQLAlchemyObjectType# type: ignore
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
+import graphene  # type: ignore
+from graphene_sqlalchemy import SQLAlchemyObjectType  # type: ignore
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity  # type: ignore
 from models import User, Lead, db
 
+# ----------------------------
+# Types
+# ----------------------------
 class UserType(SQLAlchemyObjectType):
     class Meta:
         model = User
-        only_fields = ('id', 'email', 'credits', 'created_at')
+        exclude_fields = ("password_hash", "created_at")
+
+    id = graphene.ID()
+    email = graphene.String()
+    credits = graphene.Int()
+    createdAt = graphene.String()  # ✅ camelCase resolver
+
+    def resolve_createdAt(parent, info):
+        return parent.created_at.isoformat()
+
 
 class LeadType(SQLAlchemyObjectType):
     class Meta:
         model = Lead
-        only_fields = ('id', 'user_id', 'name', 'email', 'status', 'created_at')
+        exclude_fields = ("created_at",)
 
+    id = graphene.ID()
+    name = graphene.String()
+    email = graphene.String()
+    status = graphene.String()
+    createdAt = graphene.String()  # ✅ camelCase resolver
+
+    def resolve_createdAt(parent, info):
+        return parent.created_at.isoformat()
+
+# ----------------------------
+# Inputs
+# ----------------------------
 class RegisterInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     password = graphene.String(required=True)
+
 
 class LeadInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     email = graphene.String(required=True)
     status = graphene.String()
 
+# ----------------------------
+# Mutations
+# ----------------------------
 class RegisterMutation(graphene.Mutation):
     class Arguments:
         input = RegisterInput(required=True)
-    
+
     user = graphene.Field(UserType)
     access_token = graphene.String()
 
@@ -36,17 +64,14 @@ class RegisterMutation(graphene.Mutation):
         user.set_password(input.password)
         db.session.add(user)
         db.session.commit()
-        access_token = create_access_token(identity=user.id)
-        return RegisterMutation(user=user, access_token=access_token)
+        token = create_access_token(identity=user.id)
+        return RegisterMutation(user=user, access_token=token)
 
-class LoginInput(graphene.InputObjectType):
-    email = graphene.String(required=True)
-    password = graphene.String(required=True)
 
 class LoginMutation(graphene.Mutation):
     class Arguments:
-        input = LoginInput(required=True)
-    
+        input = RegisterInput(required=True)  # same shape as register
+
     user = graphene.Field(UserType)
     access_token = graphene.String()
 
@@ -54,13 +79,14 @@ class LoginMutation(graphene.Mutation):
         user = User.query.filter_by(email=input.email).first()
         if not user or not user.check_password(input.password):
             raise Exception("Invalid credentials")
-        access_token = create_access_token(identity=user.id)
-        return LoginMutation(user=user, access_token=access_token)
+        token = create_access_token(identity=user.id)
+        return LoginMutation(user=user, access_token=token)
+
 
 class CreateLeadMutation(graphene.Mutation):
     class Arguments:
         input = LeadInput(required=True)
-    
+
     lead = graphene.Field(LeadType)
 
     @jwt_required()
@@ -73,17 +99,18 @@ class CreateLeadMutation(graphene.Mutation):
             user_id=user_id,
             name=input.name,
             email=input.email,
-            status=input.status or 'New'
+            status=input.status or "New",
         )
         user.credits -= 1
         db.session.add(lead)
         db.session.commit()
         return CreateLeadMutation(lead=lead)
 
+
 class DeleteLeadMutation(graphene.Mutation):
     class Arguments:
         id = graphene.ID(required=True)
-    
+
     success = graphene.Boolean()
 
     @jwt_required()
@@ -96,6 +123,9 @@ class DeleteLeadMutation(graphene.Mutation):
         db.session.commit()
         return DeleteLeadMutation(success=True)
 
+# ----------------------------
+# Queries
+# ----------------------------
 class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
@@ -110,10 +140,13 @@ class Query(graphene.ObjectType):
         user_id = get_jwt_identity()
         return Lead.query.filter_by(user_id=user_id).all()
 
+# ----------------------------
+# Root Schema
+# ----------------------------
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()
-    create_lead = CreateLeadMutation.Field()
-    delete_lead = DeleteLeadMutation.Field()
+    createLead = CreateLeadMutation.Field()   # ✅ camelCase in schema
+    deleteLead = DeleteLeadMutation.Field()   # ✅ camelCase in schema
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
