@@ -145,7 +145,7 @@ export default function LeadDetails({ params }: LeadDetailsProps) {
       <Navbar />
       <div className="flex min-h-[calc(100vh-3.5rem)]">
         <Sidebar />
-        <Container className="flex-1 p-6 md:pl-64">
+        <Container className="flex-1 p-6">
           <h1 className="text-3xl font-semibold mb-6">Lead Details</h1>
           <div className="bg-background/50 backdrop-blur-lg rounded-lg border border-border/80 p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">{lead.name}</h2>
