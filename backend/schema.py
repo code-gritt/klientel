@@ -1,7 +1,7 @@
 import graphene # type: ignore
 from graphene_sqlalchemy import SQLAlchemyObjectType# type: ignore
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
-from models import User, Lead, db
+from models import User, Lead, Activity, db
 
 class UserType(SQLAlchemyObjectType):
     class Meta:
@@ -12,6 +12,11 @@ class LeadType(SQLAlchemyObjectType):
     class Meta:
         model = Lead
         only_fields = ('id', 'user_id', 'name', 'email', 'status', 'created_at')
+
+class ActivityType(SQLAlchemyObjectType):
+    class Meta:
+        model = Activity
+        only_fields = ('id', 'user_id', 'action', 'created_at')
 
 class RegisterInput(graphene.InputObjectType):
     email = graphene.String(required=True)
@@ -65,7 +70,7 @@ class CreateLeadMutation(graphene.Mutation):
 
     @jwt_required()
     def mutate(self, info, input):
-        user_id = int(get_jwt_identity())  # ✅ cast back
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if user.credits < 1:
             raise Exception("Insufficient credits")
@@ -76,7 +81,9 @@ class CreateLeadMutation(graphene.Mutation):
             status=input.status or "New",
         )
         user.credits -= 1
+        activity = Activity(user_id=user_id, action=f"Created lead: {input.name}")
         db.session.add(lead)
+        db.session.add(activity)
         db.session.commit()
         return CreateLeadMutation(lead=lead)
 
@@ -93,12 +100,17 @@ class UpdateLeadMutation(graphene.Mutation):
         lead = Lead.query.filter_by(id=id, user_id=user_id).first()
         if not lead:
             raise Exception("Lead not found")
+        old_status = lead.status
         lead.name = input.name
         lead.email = input.email
         lead.status = input.status or lead.status
+        action = f"Updated lead: {input.name}"
+        if old_status != lead.status:
+            action += f"; Changed status from {old_status} to {lead.status}"
+        activity = Activity(user_id=user_id, action=action)
+        db.session.add(activity)
         db.session.commit()
         return UpdateLeadMutation(lead=lead)
-
 
 class DeleteLeadMutation(graphene.Mutation):
     class Arguments:
@@ -108,20 +120,20 @@ class DeleteLeadMutation(graphene.Mutation):
 
     @jwt_required()
     def mutate(self, info, id):
-        user_id = int(get_jwt_identity())  # ✅ cast back to int
+        user_id = int(get_jwt_identity())
         lead = Lead.query.filter_by(id=id, user_id=user_id).first()
         if not lead:
             raise Exception("Lead not found")
+        activity = Activity(user_id=user_id, action=f"Deleted lead: {lead.name}")
+        db.session.add(activity)
         db.session.delete(lead)
         db.session.commit()
         return DeleteLeadMutation(success=True)
 
-# ----------------------------
-# Queries
-# ----------------------------
 class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
+    activities = graphene.List(ActivityType, limit=graphene.Int(default_value=10))
 
     @jwt_required()
     def resolve_me(self, info):
@@ -133,9 +145,11 @@ class Query(graphene.ObjectType):
         user_id = get_jwt_identity()
         return Lead.query.filter_by(user_id=user_id).all()
 
-# ----------------------------
-# Root Schema
-# ----------------------------
+    @jwt_required()
+    def resolve_activities(self, info, limit):
+        user_id = get_jwt_identity()
+        return Activity.query.filter_by(user_id=user_id).order_by(Activity.created_at.desc()).limit(limit).all()
+
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()

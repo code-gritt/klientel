@@ -44,3 +44,18 @@ class Lead(db.Model):
             "status": self.status,
             "createdAt": self.created_at.isoformat(),  # ✅ camelCase
         }
+
+class Activity(db.Model):
+    __tablename__ = "activities"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    action = db.Column(db.String(100), nullable=False)  # e.g., "Created lead: John Doe"
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "action": self.action,
+            "createdAt": self.created_at.isoformat(),
+        }
