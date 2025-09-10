@@ -91,7 +91,7 @@ export function Chatbot() {
                         : 'bg-background/80 text-foreground/80'
                     }`}
                   >
-                    <p>{message.content}</p>
+                    <p className="text-sm">{message.content}</p>
                   </div>
                 </div>
               ))}
