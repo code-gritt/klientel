@@ -4,6 +4,11 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from models import User, Lead, Activity, Note, db
 from sqlalchemy.sql import func# type: ignore
 from datetime import datetime
+import os
+from google.generativeai import GenerativeModel, configure# type: ignore
+
+# Configure Gemini API
+configure(api_key="AIzaSyDqxbID4YBbRnVrVMfvuAgRLAyrjG-hs48")
 
 class UserType(SQLAlchemyObjectType):
     class Meta:
@@ -42,6 +47,12 @@ class LeadInput(graphene.InputObjectType):
 
 class NoteInput(graphene.InputObjectType):
     content = graphene.String(required=True)
+
+class ChatbotInput(graphene.InputObjectType):
+    query = graphene.String(required=True)
+
+class ChatbotResponse(graphene.ObjectType):
+    response = graphene.String()
 
 class RegisterMutation(graphene.Mutation):
     class Arguments:
@@ -189,6 +200,51 @@ class DeleteNoteMutation(graphene.Mutation):
         db.session.commit()
         return DeleteNoteMutation(success=True)
 
+class ChatbotMutation(graphene.Mutation):
+    class Arguments:
+        input = ChatbotInput(required=True)
+
+    response = graphene.Field(ChatbotResponse)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        KLIENTEL_INFO = """
+        Klientel is a modern CRM solution designed to streamline lead management, pipeline tracking, and analytics. Features include:
+        - Lead Management: Create, update, and delete leads with name, email, and status (New, Contacted, Qualified, Closed).
+        - Pipeline Tracking: Visualize lead progression through stages with a Kanban-style board.
+        - Analytics: View metrics like lead count, conversion rates, and average time in each stage.
+        - Recent Activities: Track user actions like creating/updating/deleting leads and adding/deleting notes.
+        - Notes: Add and manage notes for individual leads.
+        - Command+K Search: Quickly navigate to leads, notes, or pages (dashboard, pipelines, analytics).
+        The dashboard displays leads, recent activities, and analytics. Users must sign in to access the dashboard.
+        """
+
+        # Fetch recent activities
+        recent_activities = Activity.query.filter_by(user_id=user_id).order_by(Activity.created_at.desc()).limit(10).all()
+        activities_text = '\n'.join([f"{activity.action} at {activity.created_at.strftime('%Y-%m-%d %H:%M:%S')}" for activity in recent_activities]) or "No recent activities available."
+
+        prompt = f"""
+        You are KlientelBot, a minimalistic AI assistant for Klientel, a modern CRM platform. Answer queries concisely and accurately in a friendly, futuristic tone based on the following information:
+
+        {KLIENTEL_INFO}
+
+        Recent Activities:
+        {activities_text}
+
+        User Query: {input.query}
+
+        If the query is unrelated to Klientel, politely redirect to Klientel-related topics.
+        """
+
+        try:
+            model = GenerativeModel('gemini-1.5-flash')
+            result = model.generate_content(prompt)
+            response_text = result.text
+            return ChatbotMutation(response=ChatbotResponse(response=response_text))
+        except Exception as e:
+            raise Exception(f"Failed to generate response: {str(e)}")
+
 class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
@@ -283,5 +339,6 @@ class Mutation(graphene.ObjectType):
     deleteLead = DeleteLeadMutation.Field()
     createNote = CreateNoteMutation.Field()
     deleteNote = DeleteNoteMutation.Field()
+    chatbot = ChatbotMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
