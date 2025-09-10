@@ -36,7 +36,7 @@ class RegisterMutation(graphene.Mutation):
         user.set_password(input.password)
         db.session.add(user)
         db.session.commit()
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))
         return RegisterMutation(user=user, access_token=access_token)
 
 class LoginInput(graphene.InputObjectType):
@@ -54,7 +54,7 @@ class LoginMutation(graphene.Mutation):
         user = User.query.filter_by(email=input.email).first()
         if not user or not user.check_password(input.password):
             raise Exception("Invalid credentials")
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id)) 
         return LoginMutation(user=user, access_token=access_token)
 
 class CreateLeadMutation(graphene.Mutation):
