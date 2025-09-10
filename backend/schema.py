@@ -65,8 +65,10 @@ class CreateLeadMutation(graphene.Mutation):
 
     @jwt_required()
     def mutate(self, info, input):
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())  # ✅ cast back to int
         user = User.query.get(user_id)
+        if not user:
+            raise Exception("User not found")
         if user.credits < 1:
             raise Exception("Insufficient credits")
         lead = Lead(
@@ -89,7 +91,7 @@ class DeleteLeadMutation(graphene.Mutation):
 
     @jwt_required()
     def mutate(self, info, id):
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())  # ✅ cast back to int
         lead = Lead.query.filter_by(id=id, user_id=user_id).first()
         if not lead:
             raise Exception("Lead not found")

@@ -1,3 +1,5 @@
+'use client';
+
 import { Container, Navbar } from '@/components';
 import Sidebar from '@/components/sidebar';
 import { useAuthStore } from '@/store/auth-store';
