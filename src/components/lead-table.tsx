@@ -20,6 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { LoaderFour } from './ui/loader';
 
 interface Lead {
@@ -31,11 +38,12 @@ interface Lead {
 }
 
 export default function LeadTable() {
-  const { leads, isLoading, deleteLead, createLead, fetchLeads } =
+  const { leads, isLoading, deleteLead, createLead, updateLead, fetchLeads } =
     useLeadStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('New');
+  const [editLead, setEditLead] = useState<Lead | null>(null);
 
   useEffect(() => {
     fetchLeads();
@@ -54,6 +62,23 @@ export default function LeadTable() {
     }
   };
 
+  const handleUpdateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editLead) return;
+    try {
+      await updateLead(
+        editLead.id,
+        editLead.name,
+        editLead.email,
+        editLead.status
+      );
+      toast.success('Lead updated');
+      setEditLead(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const columns = useMemo<ColumnDef<Lead>[]>(
     () => [
       { accessorKey: 'name', header: 'Name' },
@@ -64,13 +89,73 @@ export default function LeadTable() {
         header: 'Actions',
         cell: ({ row }) => (
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => alert('Edit feature coming soon!')}
-            >
-              <Pencil className="w-4 h-4" />
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditLead(row.original)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background/50 backdrop-blur-lg border border-border/80">
+                <DialogHeader>
+                  <DialogTitle>Edit Lead</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleUpdateLead} className="space-y-4">
+                  <Input
+                    placeholder="Name"
+                    value={editLead?.name || ''}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, name: e.target.value } : null
+                      )
+                    }
+                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+                    required
+                  />
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={editLead?.email || ''}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, email: e.target.value } : null
+                      )
+                    }
+                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+                    required
+                  />
+                  <select
+                    value={editLead?.status || 'New'}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, status: e.target.value } : null
+                      )
+                    }
+                    className="border border-border/80 bg-background/50 rounded-md px-3 py-2 text-foreground/80 focus:outline-none focus:border-primary w-full"
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Qualified">Qualified</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? <LoaderFour /> : 'Save'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setEditLead(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="ghost"
               size="sm"
