@@ -80,6 +80,24 @@ class CreateLeadMutation(graphene.Mutation):
         db.session.commit()
         return CreateLeadMutation(lead=lead)
 
+class UpdateLeadMutation(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=True)
+        input = LeadInput(required=True)
+
+    lead = graphene.Field(LeadType)
+
+    @jwt_required()
+    def mutate(self, info, id, input):
+        user_id = int(get_jwt_identity())
+        lead = Lead.query.filter_by(id=id, user_id=user_id).first()
+        if not lead:
+            raise Exception("Lead not found")
+        lead.name = input.name
+        lead.email = input.email
+        lead.status = input.status or lead.status
+        db.session.commit()
+        return UpdateLeadMutation(lead=lead)
 
 
 class DeleteLeadMutation(graphene.Mutation):
@@ -121,7 +139,8 @@ class Query(graphene.ObjectType):
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()
-    createLead = CreateLeadMutation.Field()   # ✅ camelCase in schema
-    deleteLead = DeleteLeadMutation.Field()   # ✅ camelCase in schema
+    createLead = CreateLeadMutation.Field()
+    updateLead = UpdateLeadMutation.Field()
+    deleteLead = DeleteLeadMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
