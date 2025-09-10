@@ -3,6 +3,7 @@ import { SITE_CONFIG } from '@/config';
 import { cn } from '@/lib/utils';
 import '@/styles/globals.css';
 import { Inter } from 'next/font/google';
+import { Toaster } from 'react-hot-toast';
 
 const font = Inter({ subsets: ['latin'] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({
         )}
       >
         {children}
+        <Toaster position="top-right" />
       </body>
     </html>
   );

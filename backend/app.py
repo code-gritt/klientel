@@ -11,7 +11,7 @@ app = Flask(__name__)
 # Configure CORS to allow frontend access
 CORS(
     app,
-    resources={r"/graphql": {"origins": ["http://localhost:5000", "https://klientel.vercel.app"]}},
+    resources={r"/graphql": {"origins": ["http://localhost:5000","http://localhost:3000", "https://klientel.vercel.app"]}},
     supports_credentials=True
 )
 
