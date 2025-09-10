@@ -25,7 +25,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
+import Link from 'next/link';
 import { LoaderFour } from './ui/loader';
 
 interface Lead {
@@ -44,12 +46,10 @@ export default function LeadTable() {
   const [status, setStatus] = useState('New');
   const [editLead, setEditLead] = useState<Lead | null>(null);
 
-  // Fetch leads on mount
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
 
-  // Add new lead
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -63,7 +63,6 @@ export default function LeadTable() {
     }
   };
 
-  // Update existing lead
   const handleUpdateLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editLead) return;
@@ -81,10 +80,20 @@ export default function LeadTable() {
     }
   };
 
-  // Table columns
   const columns = useMemo<ColumnDef<Lead>[]>(
     () => [
-      { accessorKey: 'name', header: 'Name' },
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Link
+            href={`/dashboard/leads/${row.original.id}`}
+            className="text-primary hover:underline"
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
       { accessorKey: 'email', header: 'Email' },
       { accessorKey: 'status', header: 'Status' },
       {
@@ -92,16 +101,76 @@ export default function LeadTable() {
         header: 'Actions',
         cell: ({ row }) => (
           <div className="flex gap-2">
-            {/* Edit Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setEditLead(row.original)}
+            <Dialog
+              open={editLead?.id === row.original.id}
+              onOpenChange={(open) => !open && setEditLead(null)}
             >
-              <Pencil className="w-4 h-4" />
-            </Button>
-
-            {/* Delete Button */}
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditLead(row.original)}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-background/50 backdrop-blur-lg border border-border/80">
+                <DialogHeader>
+                  <DialogTitle>Edit Lead</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleUpdateLead} className="space-y-4 mt-2">
+                  <Input
+                    placeholder="Name"
+                    value={editLead?.name || ''}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, name: e.target.value } : null
+                      )
+                    }
+                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+                    required
+                  />
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={editLead?.email || ''}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, email: e.target.value } : null
+                      )
+                    }
+                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+                    required
+                  />
+                  <select
+                    value={editLead?.status || 'New'}
+                    onChange={(e) =>
+                      setEditLead((prev) =>
+                        prev ? { ...prev, status: e.target.value } : null
+                      )
+                    }
+                    className="border border-border/80 bg-background/50 rounded-md px-3 py-2 text-foreground/80 focus:outline-none focus:border-primary w-full"
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Qualified">Qualified</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? <LoaderFour /> : 'Save'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setEditLead(null)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
             <Button
               variant="ghost"
               size="sm"
@@ -131,7 +200,6 @@ export default function LeadTable() {
 
   return (
     <div className="bg-background/50 backdrop-blur-lg rounded-lg border border-border/80 p-4 sm:p-6 mt-6 w-full">
-      {/* Add Lead Form */}
       <form
         onSubmit={handleCreateLead}
         className="mb-6 flex flex-col sm:flex-row gap-4"
@@ -165,8 +233,6 @@ export default function LeadTable() {
           {isLoading ? <LoaderFour /> : 'Add Lead'}
         </Button>
       </form>
-
-      {/* Leads Table */}
       {isLoading ? (
         <LoaderFour />
       ) : !leads.length ? (
@@ -204,71 +270,6 @@ export default function LeadTable() {
             </TableBody>
           </Table>
         </div>
-      )}
-
-      {/* Edit Lead Dialog */}
-      {editLead && (
-        <Dialog
-          open={!!editLead}
-          onOpenChange={(open) => !open && setEditLead(null)}
-        >
-          <DialogContent className="bg-background/50 backdrop-blur-lg border border-border/80">
-            <DialogHeader>
-              <DialogTitle>Edit Lead</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleUpdateLead} className="space-y-4 mt-2">
-              <Input
-                placeholder="Name"
-                value={editLead.name}
-                onChange={(e) =>
-                  setEditLead((prev) =>
-                    prev ? { ...prev, name: e.target.value } : null
-                  )
-                }
-                className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
-                required
-              />
-              <Input
-                placeholder="Email"
-                type="email"
-                value={editLead.email}
-                onChange={(e) =>
-                  setEditLead((prev) =>
-                    prev ? { ...prev, email: e.target.value } : null
-                  )
-                }
-                className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
-                required
-              />
-              <select
-                value={editLead.status}
-                onChange={(e) =>
-                  setEditLead((prev) =>
-                    prev ? { ...prev, status: e.target.value } : null
-                  )
-                }
-                className="border border-border/80 bg-background/50 rounded-md px-3 py-2 text-foreground/80 focus:outline-none focus:border-primary w-full"
-              >
-                <option value="New">New</option>
-                <option value="Contacted">Contacted</option>
-                <option value="Qualified">Qualified</option>
-                <option value="Closed">Closed</option>
-              </select>
-              <div className="flex justify-end gap-2 mt-2">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? <LoaderFour /> : 'Save'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setEditLead(null)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       )}
     </div>
   );
