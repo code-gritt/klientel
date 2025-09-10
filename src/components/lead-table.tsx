@@ -100,7 +100,6 @@ export default function LeadTable() {
 
   return (
     <div className="bg-background/50 backdrop-blur-lg rounded-lg border border-border/80 p-6 mt-6">
-      <h2 className="text-xl font-semibold mb-4">Your Leads</h2>
       <form
         onSubmit={handleCreateLead}
         className="mb-6 flex flex-col sm:flex-row gap-4"
