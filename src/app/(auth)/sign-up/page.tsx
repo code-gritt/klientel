@@ -23,7 +23,7 @@ export default function SignUp() {
       toast.success('Account created successfully!');
       router.push('/dashboard');
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(err.message || 'Failed to sign up');
     }
   };
 
@@ -36,37 +36,36 @@ export default function SignUp() {
           delay={9}
           className="pointer-events-none"
         />
+
         <h2 className="text-2xl font-semibold text-center">
           Sign Up for Klientel
         </h2>
         <p className="text-muted-foreground text-center mt-2">
           Start with 50 free credits!
         </p>
+
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
-              required
-            />
-          </div>
-          <div>
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
-              required
-            />
-          </div>
+          <Input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+            required
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+            required
+          />
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? <Loader /> : 'Sign Up'}
           </Button>
         </form>
+
         <p className="text-center text-sm text-muted-foreground mt-4">
           Already have an account?{' '}
           <a href="/sign-in" className="text-primary hover:underline">

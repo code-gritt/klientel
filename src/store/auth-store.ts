@@ -27,10 +27,11 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       isLoading: false,
       error: null,
+
       login: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(API_URL!, {
+          const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -38,7 +39,7 @@ export const useAuthStore = create<AuthState>()(
                 mutation Login($input: LoginInput!) {
                   login(input: $input) {
                     user { id email credits }
-                    access_token
+                    accessToken   # ✅ updated
                   }
                 }
               `,
@@ -47,9 +48,10 @@ export const useAuthStore = create<AuthState>()(
           });
           const { data, errors } = await response.json();
           if (errors) throw new Error(errors[0].message);
+
           set({
             user: data.login.user,
-            token: data.login.access_token,
+            token: data.login.accessToken,
             isLoading: false,
           });
         } catch (err: any) {
@@ -57,10 +59,11 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         }
       },
+
       register: async (email: string, password: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(API_URL!, {
+          const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -68,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
                 mutation Register($input: RegisterInput!) {
                   register(input: $input) {
                     user { id email credits }
-                    access_token
+                    accessToken   # ✅ updated
                   }
                 }
               `,
@@ -77,9 +80,10 @@ export const useAuthStore = create<AuthState>()(
           });
           const { data, errors } = await response.json();
           if (errors) throw new Error(errors[0].message);
+
           set({
             user: data.register.user,
-            token: data.register.access_token,
+            token: data.register.accessToken,
             isLoading: false,
           });
         } catch (err: any) {
@@ -87,13 +91,15 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         }
       },
+
       logout: () => set({ user: null, token: null, error: null }),
+
       fetchMe: async () => {
         const token = useAuthStore.getState().token;
         if (!token) throw new Error('No token');
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(API_URL!, {
+          const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -109,6 +115,7 @@ export const useAuthStore = create<AuthState>()(
           });
           const { data, errors } = await response.json();
           if (errors) throw new Error(errors[0].message);
+
           set({ user: data.me, isLoading: false });
         } catch (err: any) {
           set({ error: err.message, isLoading: false });
