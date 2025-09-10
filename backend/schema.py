@@ -1,7 +1,9 @@
-import graphene # type: ignore
-from graphene_sqlalchemy import SQLAlchemyObjectType# type: ignore
+import graphene# type: ignore
+from graphene_sqlalchemy import SQLAlchemyObjectType # type: ignore
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
 from models import User, Lead, Activity, db
+from sqlalchemy.sql import func# type: ignore
+from datetime import datetime
 
 class UserType(SQLAlchemyObjectType):
     class Meta:
@@ -17,6 +19,12 @@ class ActivityType(SQLAlchemyObjectType):
     class Meta:
         model = Activity
         only_fields = ('id', 'user_id', 'action', 'created_at')
+
+class PipelineMetricsType(graphene.ObjectType):
+    status = graphene.String()
+    lead_count = graphene.Int()
+    conversion_rate = graphene.Float()  # To next stage
+    avg_time_in_stage = graphene.Float()  # In days
 
 class RegisterInput(graphene.InputObjectType):
     email = graphene.String(required=True)
@@ -134,6 +142,7 @@ class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
     activities = graphene.List(ActivityType, limit=graphene.Int(default_value=10))
+    pipeline_metrics = graphene.List(PipelineMetricsType)
 
     @jwt_required()
     def resolve_me(self, info):
@@ -149,6 +158,69 @@ class Query(graphene.ObjectType):
     def resolve_activities(self, info, limit):
         user_id = get_jwt_identity()
         return Activity.query.filter_by(user_id=user_id).order_by(Activity.created_at.desc()).limit(limit).all()
+
+    @jwt_required()
+    def resolve_pipeline_metrics(self, info):
+        user_id = get_jwt_identity()
+        stages = ['New', 'Contacted', 'Qualified', 'Closed']
+        metrics = []
+
+        # Get lead counts per stage
+        lead_counts = (
+            Lead.query.filter_by(user_id=user_id)
+            .group_by(Lead.status)
+            .with_entities(Lead.status, func.count(Lead.id).label('count'))
+            .all()
+        )
+        lead_count_dict = {status: count for status, count in lead_counts}
+
+        # Calculate conversion rates and average time in stage
+        for i, status in enumerate(stages):
+            count = lead_count_dict.get(status, 0)
+            conversion_rate = 0.0
+            if i < len(stages) - 1:
+                next_status = stages[i + 1]
+                current_count = lead_count_dict.get(status, 0)
+                next_count = lead_count_dict.get(next_status, 0)
+                conversion_rate = (next_count / current_count * 100) if current_count > 0 else 0.0
+
+            # Calculate average time in stage using Activity logs
+            avg_time = 0.0
+            status_changes = (
+                Activity.query.filter_by(user_id=user_id)
+                .filter(Activity.action.contains(f"Changed status to {status}"))
+                .all()
+            )
+            if status_changes:
+                total_days = 0
+                count_changes = 0
+                for change in status_changes:
+                    # Find next status change or deletion for this lead
+                    lead_id = change.action.split('lead: ')[1].split(';')[0]
+                    next_changes = (
+                        Activity.query.filter_by(user_id=user_id)
+                        .filter(Activity.created_at > change.created_at)
+                        .filter(
+                            (Activity.action.contains(f"Changed status from {status}")) |
+                            (Activity.action.contains(f"Deleted lead: {lead_id}"))
+                        )
+                        .order_by(Activity.created_at.asc())
+                        .first()
+                    )
+                    if next_changes:
+                        time_diff = (next_changes.created_at - change.created_at).total_seconds() / (60 * 60 * 24)
+                        total_days += time_diff
+                        count_changes += 1
+                avg_time = total_days / count_changes if count_changes > 0 else 0.0
+
+            metrics.append({
+                'status': status,
+                'lead_count': count,
+                'conversion_rate': round(conversion_rate, 2),
+                'avg_time_in_stage': round(avg_time, 2),
+            })
+
+        return [PipelineMetricsType(**metric) for metric in metrics]
 
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
