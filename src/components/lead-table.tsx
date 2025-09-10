@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ColumnDef,
   flexRender,
@@ -8,10 +8,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useLeadStore } from '@/store/lead-store';
 import { toast } from 'react-hot-toast';
 import { Pencil, Trash2 } from 'lucide-react';
-import { LoaderFour } from './ui/loader';
 import {
   Table,
   TableBody,
@@ -19,7 +19,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from './ui/table';
+} from '@/components/ui/table';
+import { LoaderFour } from './ui/loader';
 
 interface Lead {
   id: string;
@@ -30,11 +31,28 @@ interface Lead {
 }
 
 export default function LeadTable() {
-  const { leads, isLoading, deleteLead, fetchLeads } = useLeadStore();
+  const { leads, isLoading, deleteLead, createLead, fetchLeads } =
+    useLeadStore();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState('New');
 
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
+
+  const handleCreateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createLead(name, email, status);
+      toast.success('Lead created');
+      setName('');
+      setEmail('');
+      setStatus('New');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const columns = useMemo<ColumnDef<Lead>[]>(
     () => [
@@ -80,40 +98,75 @@ export default function LeadTable() {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  if (isLoading) return <LoaderFour />;
-  if (!leads.length)
-    return <p className="text-center text-muted-foreground">No leads yet</p>;
-
   return (
     <div className="bg-background/50 backdrop-blur-lg rounded-lg border border-border/80 p-6 mt-6">
       <h2 className="text-xl font-semibold mb-4">Your Leads</h2>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <form
+        onSubmit={handleCreateLead}
+        className="mb-6 flex flex-col sm:flex-row gap-4"
+      >
+        <Input
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+          required
+        />
+        <Input
+          placeholder="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+          required
+        />
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="border border-border/80 bg-background/50 rounded-md px-3 py-2 text-foreground/80 focus:outline-none focus:border-primary"
+        >
+          <option value="New">New</option>
+          <option value="Contacted">Contacted</option>
+          <option value="Qualified">Qualified</option>
+          <option value="Closed">Closed</option>
+        </select>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? <LoaderFour /> : 'Add Lead'}
+        </Button>
+      </form>
+      {isLoading ? (
+        <LoaderFour />
+      ) : !leads.length ? (
+        <p className="text-center text-muted-foreground">No leads yet</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }

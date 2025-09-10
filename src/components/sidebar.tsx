@@ -40,6 +40,7 @@ export default function Sidebar() {
                 key={item.name}
                 href={item.href}
                 className="flex items-center gap-2 px-4 py-2 text-foreground/80 hover:bg-primary/10 hover:text-primary rounded-md"
+                onClick={() => setIsOpen(false)} // Close sidebar on mobile click
               >
                 <item.icon className="w-5 h-5" />
                 <span>{item.name}</span>

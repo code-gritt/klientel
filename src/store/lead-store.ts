@@ -1,3 +1,5 @@
+'use client';
+
 import { create } from 'zustand';
 import { useAuthStore } from './auth-store';
 
@@ -6,7 +8,7 @@ interface Lead {
   name: string;
   email: string;
   status: string;
-  createdAt: string; // ✅ camelCase
+  createdAt: string;
 }
 
 interface LeadState {
@@ -18,21 +20,25 @@ interface LeadState {
   deleteLead: (id: string) => Promise<void>;
 }
 
-const API_URL = 'https://klientel-backend.onrender.com/graphql';
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://klientel-backend.onrender.com/graphql';
 
 export const useLeadStore = create<LeadState>((set) => ({
   leads: [],
   isLoading: false,
   error: null,
 
-  // ✅ Fetch all leads
   fetchLeads: async () => {
     const { token } = useAuthStore.getState();
-    if (!token) throw new Error('No token');
+    if (!token) {
+      set({ error: 'Please log in to view leads', isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(API_URL!, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,12 +60,8 @@ export const useLeadStore = create<LeadState>((set) => ({
       });
 
       const { data, errors } = await response.json();
-
-      if (errors && errors.length > 0) {
-        console.error('GraphQL errors:', errors);
-        throw new Error(errors[0]?.message || 'Unknown GraphQL error');
-      }
-
+      if (errors)
+        throw new Error(errors[0]?.message || 'Failed to fetch leads');
       set({ leads: data?.leads || [], isLoading: false });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
@@ -67,14 +69,16 @@ export const useLeadStore = create<LeadState>((set) => ({
     }
   },
 
-  // ✅ Create a new lead
   createLead: async (name: string, email: string, status?: string) => {
     const { token } = useAuthStore.getState();
-    if (!token) throw new Error('No token');
+    if (!token) {
+      set({ error: 'Please log in to create a lead', isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(API_URL!, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,18 +103,12 @@ export const useLeadStore = create<LeadState>((set) => ({
       });
 
       const { data, errors } = await response.json();
-
-      if (errors && errors.length > 0) {
-        console.error('GraphQL errors:', errors);
-        throw new Error(errors[0]?.message || 'Unknown GraphQL error');
-      }
-
+      if (errors)
+        throw new Error(errors[0]?.message || 'Failed to create lead');
       set((state) => ({
-        leads: [...state.leads, data?.createLead?.lead],
+        leads: [...state.leads, data.createLead.lead],
         isLoading: false,
       }));
-
-      // Decrease credits for the logged-in user
       useAuthStore.setState((state) => ({
         user: state.user
           ? { ...state.user, credits: state.user.credits - 1 }
@@ -122,14 +120,16 @@ export const useLeadStore = create<LeadState>((set) => ({
     }
   },
 
-  // ✅ Delete a lead
   deleteLead: async (id: string) => {
     const { token } = useAuthStore.getState();
-    if (!token) throw new Error('No token');
+    if (!token) {
+      set({ error: 'Please log in to delete a lead', isLoading: false });
+      return;
+    }
     set({ isLoading: true, error: null });
 
     try {
-      const response = await fetch(API_URL!, {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,14 +148,10 @@ export const useLeadStore = create<LeadState>((set) => ({
       });
 
       const { data, errors } = await response.json();
-
-      if (errors && errors.length > 0) {
-        console.error('GraphQL errors:', errors);
-        throw new Error(errors[0]?.message || 'Unknown GraphQL error');
-      }
-
+      if (errors)
+        throw new Error(errors[0]?.message || 'Failed to delete lead');
       set((state) => ({
-        leads: state.leads.filter((lead) => lead.id !== id),
+        leads: state.leads.filter((lead) => lead.id !== id), // ✅ Fixed typo
         isLoading: false,
       }));
     } catch (err: any) {
