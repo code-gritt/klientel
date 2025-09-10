@@ -3,9 +3,9 @@
 import { create } from 'zustand';
 import { useAuthStore } from './auth-store';
 
-interface Activity {
+export interface Activity {
   id: string;
-  user_id: string;
+  userId: string; // camelCase
   action: string;
   createdAt: string;
 }
@@ -46,7 +46,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
             query {
               activities(limit: 10) {
                 id
-                user_id
+                userId
                 action
                 createdAt
               }
@@ -58,10 +58,10 @@ export const useActivityStore = create<ActivityState>((set) => ({
       const { data, errors } = await response.json();
       if (errors)
         throw new Error(errors[0]?.message || 'Failed to fetch activities');
-      set({ activities: data?.activities || [], isLoading: false });
+
+      set({ activities: data.activities || [], isLoading: false });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
-      throw err;
     }
   },
 }));
