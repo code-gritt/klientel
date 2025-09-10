@@ -8,7 +8,7 @@ export default function Pipelines() {
       <Navbar />
       <div className="flex min-h-[calc(100vh-3.5rem)]">
         <Sidebar />
-        <Container className="flex-1 py-6 md:pl-64">
+        <Container className="flex-1 p-6">
           <h1 className="text-3xl font-semibold mb-6">Pipelines</h1>
           <PipelineBoard />
         </Container>
