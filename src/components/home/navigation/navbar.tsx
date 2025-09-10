@@ -5,8 +5,8 @@ import { Container, Icons } from '@/components';
 import { buttonVariants } from '@/components/ui/button';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth-store';
-import { Loader } from '@/components/ui/loader';
 import { LogOut, User } from 'lucide-react';
+import { LoaderFour } from '@/components/ui/loader';
 
 export default function Navbar() {
   const { user, token, logout, fetchMe, isLoading } = useAuthStore();
@@ -49,7 +49,7 @@ export default function Navbar() {
           </nav>
           <div className="flex items-center gap-4">
             {isLoading ? (
-              <Loader />
+              <LoaderFour />
             ) : user ? (
               <>
                 <Link

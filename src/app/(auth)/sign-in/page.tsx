@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Container } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader } from '@/components/ui/loader';
 import { useAuthStore } from '@/store/auth-store';
 import { toast } from 'react-hot-toast';
 import { BorderBeam } from '@/components/ui/border-beam';
+import { LoaderFour } from '@/components/ui/loader';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -62,7 +62,7 @@ export default function SignIn() {
             required
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? <Loader /> : 'Sign In'}
+            {isLoading ? <LoaderFour /> : 'Sign In'}
           </Button>
         </form>
 
