@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CommandPalette } from '@/components/command-palette';
 import { Toaster } from 'react-hot-toast';
+import { Chatbot } from './chatbot';
 
 export default function ClientFeatures() {
   const [open, setOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function ClientFeatures() {
     <>
       <CommandPalette open={open} setOpen={setOpen} />
       <Toaster position="top-right" />
+      <Chatbot />
     </>
   );
 }
