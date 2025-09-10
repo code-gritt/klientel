@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Container } from '@/components';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Home, Users, BarChart2 } from 'lucide-react';
+import { Menu, X, Home, Users, BarChart2, Workflow } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +15,7 @@ export default function Sidebar() {
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Leads', href: '/dashboard/leads', icon: Users },
+    { name: 'Pipelines', href: '/dashboard/pipelines', icon: Workflow },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
   ];
 
@@ -40,7 +41,7 @@ export default function Sidebar() {
                 key={item.name}
                 href={item.href}
                 className="flex items-center gap-2 px-4 py-2 text-foreground/80 hover:bg-primary/10 hover:text-primary rounded-md"
-                onClick={() => setIsOpen(false)} // Close sidebar on mobile click
+                onClick={() => setIsOpen(false)}
               >
                 <item.icon className="w-5 h-5" />
                 <span>{item.name}</span>

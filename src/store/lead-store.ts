@@ -23,6 +23,7 @@ interface LeadState {
     email: string,
     status?: string
   ) => Promise<void>;
+  updateLeadStatus: (id: string, status: string) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
 }
 
@@ -167,6 +168,59 @@ export const useLeadStore = create<LeadState>((set) => ({
       const { data, errors } = await response.json();
       if (errors)
         throw new Error(errors[0]?.message || 'Failed to update lead');
+      set((state) => ({
+        leads: state.leads.map((lead) =>
+          lead.id === id ? data.updateLead.lead : lead
+        ),
+        isLoading: false,
+      }));
+    } catch (err: any) {
+      set({ error: err.message, isLoading: false });
+      throw err;
+    }
+  },
+
+  updateLeadStatus: async (id: string, status: string) => {
+    const { token } = useAuthStore.getState();
+    if (!token) {
+      set({ error: 'Please log in to update a lead', isLoading: false });
+      return;
+    }
+    set({ isLoading: true, error: null });
+
+    try {
+      const lead = useLeadStore.getState().leads.find((l) => l.id === id);
+      if (!lead) throw new Error('Lead not found');
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          query: `
+            mutation UpdateLead($id: ID!, $input: LeadInput!) {
+              updateLead(id: $id, input: $input) {
+                lead {
+                  id
+                  name
+                  email
+                  status
+                  createdAt
+                }
+              }
+            }
+          `,
+          variables: {
+            id,
+            input: { name: lead.name, email: lead.email, status },
+          },
+        }),
+      });
+
+      const { data, errors } = await response.json();
+      if (errors)
+        throw new Error(errors[0]?.message || 'Failed to update lead status');
       set((state) => ({
         leads: state.leads.map((lead) =>
           lead.id === id ? data.updateLead.lead : lead
