@@ -1,10 +1,13 @@
-from flask_sqlalchemy import SQLAlchemy # type: ignore
-from werkzeug.security import generate_password_hash, check_password_hash # type: ignore
+from flask_sqlalchemy import SQLAlchemy  # type: ignore
+from werkzeug.security import generate_password_hash, check_password_hash  # type: ignore
+from datetime import datetime
 
 db = SQLAlchemy()
 
+
 class User(db.Model):
-    __tablename__ = 'users'
+    __tablename__ = "users"
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=False)
@@ -25,15 +28,18 @@ class User(db.Model):
             "createdAt": self.created_at.isoformat(),
         }
 
+
 class Lead(db.Model):
     __tablename__ = "leads"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), nullable=False)
     status = db.Column(db.String(50), default="New", nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    tags = db.relationship('Tag', secondary='lead_tags', back_populates='leads')
+
+    tags = db.relationship("Tag", secondary="lead_tags", back_populates="leads")
 
     def to_dict(self) -> dict:
         return {
@@ -46,8 +52,10 @@ class Lead(db.Model):
             "tags": [tag.to_dict() for tag in self.tags],
         }
 
+
 class Activity(db.Model):
     __tablename__ = "activities"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     action = db.Column(db.String(100), nullable=False)
@@ -61,8 +69,10 @@ class Activity(db.Model):
             "createdAt": self.created_at.isoformat(),
         }
 
+
 class Note(db.Model):
     __tablename__ = "notes"
+
     id = db.Column(db.Integer, primary_key=True)
     lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
@@ -78,13 +88,16 @@ class Note(db.Model):
             "createdAt": self.created_at.isoformat(),
         }
 
+
 class Tag(db.Model):
     __tablename__ = "tags"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     name = db.Column(db.String(50), nullable=False)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    leads = db.relationship('Lead', secondary='lead_tags', back_populates='tags')
+
+    leads = db.relationship("Lead", secondary="lead_tags", back_populates="tags")
 
     def to_dict(self) -> dict:
         return {
@@ -94,8 +107,25 @@ class Tag(db.Model):
             "createdAt": self.created_at.isoformat(),
         }
 
+
 class LeadTag(db.Model):
     __tablename__ = "lead_tags"
+
     lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
     created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+
+class UserWidget(db.Model):
+    __tablename__ = "user_widgets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)  # ✅ fixed
+    widget_type = db.Column(
+        db.String(50), nullable=False
+    )  # e.g., 'lead_stats', 'recent_activities', 'pipeline_overview'
+    position_x = db.Column(db.Integer, nullable=False)
+    position_y = db.Column(db.Integer, nullable=False)
+    width = db.Column(db.Integer, nullable=False)
+    height = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

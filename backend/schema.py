@@ -1,7 +1,7 @@
 import graphene # type: ignore
 from graphene_sqlalchemy import SQLAlchemyObjectType# type: ignore
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
-from models import User, Lead, Activity, Note, Tag, LeadTag, db
+from models import User, Lead, Activity, Note, Tag, LeadTag, UserWidget, db
 from sqlalchemy.sql import func# type: ignore
 from datetime import datetime
 import os
@@ -37,6 +37,25 @@ class LeadType(SQLAlchemyObjectType):
 
     def resolve_tags(self, info):
         return self.tags
+    
+class UserWidgetType(SQLAlchemyObjectType):
+    class Meta:
+        model = UserWidget
+        only_fields = ('id', 'user_id', 'widget_type', 'position_x', 'position_y', 'width', 'height')
+
+class UserWidgetInput(graphene.InputObjectType):
+    widget_type = graphene.String(required=True)
+    position_x = graphene.Int(required=True)
+    position_y = graphene.Int(required=True)
+    width = graphene.Int(required=True)
+    height = graphene.Int(required=True)
+
+class UpdateUserWidgetInput(graphene.InputObjectType):
+    id = graphene.ID(required=True)
+    position_x = graphene.Int()
+    position_y = graphene.Int()
+    width = graphene.Int()
+    height = graphene.Int()
 
 class ActivityType(SQLAlchemyObjectType):
     class Meta:
@@ -94,7 +113,7 @@ class ExportReportOutput(graphene.ObjectType):
     file_content = graphene.String()  # Base64-encoded file
     file_type = graphene.String()    # "pdf" or "csv"
     file_name = graphene.String()
-    
+
 class EmailMutation(graphene.Mutation):
     class Arguments:
         input = EmailInput(required=True)
@@ -132,6 +151,70 @@ class EmailMutation(graphene.Mutation):
         except Exception as e:
             raise Exception(f"Failed to send email: {str(e)}")
 
+class CreateUserWidgetMutation(graphene.Mutation):
+    class Arguments:
+        input = UserWidgetInput(required=True)
+
+    widget = graphene.Field(UserWidgetType)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        if input.widget_type not in ['lead_stats', 'recent_activities', 'pipeline_overview']:
+            raise Exception("Invalid widget type")
+        widget = UserWidget(
+            user_id=user_id,
+            widget_type=input.widget_type,
+            position_x=input.position_x,
+            position_y=input.position_y,
+            width=input.width,
+            height=input.height
+        )
+        db.session.add(widget)
+        db.session.add(Activity(user_id=user_id, action=f"Added widget: {input.widget_type}"))
+        db.session.commit()
+        return CreateUserWidgetMutation(widget=widget)
+
+class UpdateUserWidgetMutation(graphene.Mutation):
+    class Arguments:
+        input = UpdateUserWidgetInput(required=True)
+
+    widget = graphene.Field(UserWidgetType)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        widget = UserWidget.query.filter_by(id=input.id, user_id=user_id).first()
+        if not widget:
+            raise Exception("Widget not found")
+        if input.position_x is not None:
+            widget.position_x = input.position_x
+        if input.position_y is not None:
+            widget.position_y = input.position_y
+        if input.width is not None:
+            widget.width = input.width
+        if input.height is not None:
+            widget.height = input.height
+        db.session.add(Activity(user_id=user_id, action=f"Updated widget: {widget.widget_type}"))
+        db.session.commit()
+        return UpdateUserWidgetMutation(widget=widget)
+
+class DeleteUserWidgetMutation(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=True)
+
+    success = graphene.Boolean()
+
+    @jwt_required()
+    def mutate(self, info, id):
+        user_id = int(get_jwt_identity())
+        widget = UserWidget.query.filter_by(id=id, user_id=user_id).first()
+        if not widget:
+            raise Exception("Widget not found")
+        db.session.add(Activity(user_id=user_id, action=f"Removed widget: {widget.widget_type}"))
+        db.session.delete(widget)
+        db.session.commit()
+        return DeleteUserWidgetMutation(success=True)
 
 class RegisterMutation(graphene.Mutation):
     class Arguments:
@@ -546,6 +629,7 @@ class Query(graphene.ObjectType):
     notes = graphene.List(NoteType, lead_id=graphene.ID(required=True))
     tags = graphene.List(TagType)
     leads_by_tags = graphene.List(LeadType, tag_ids=graphene.List(graphene.ID))
+    user_widgets = graphene.List(UserWidgetType)
 
     @jwt_required()
     def resolve_me(self, info):
@@ -639,6 +723,11 @@ class Query(graphene.ObjectType):
             query = query.join(LeadTag).filter(LeadTag.tag_id.in_(tag_ids))
         return query.all()
 
+    @jwt_required()
+    def resolve_user_widgets(self, info):
+        user_id = get_jwt_identity()
+        return UserWidget.query.filter_by(user_id=user_id).all()
+
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()
@@ -653,6 +742,9 @@ class Mutation(graphene.ObjectType):
     removeTagFromLead = RemoveTagFromLeadMutation.Field()
     sendEmail = EmailMutation.Field()
     exportReport = ExportReportMutation.Field()
+    createUserWidget = CreateUserWidgetMutation.Field()
+    updateUserWidget = UpdateUserWidgetMutation.Field()
+    deleteUserWidget = DeleteUserWidgetMutation.Field()
     chatbot = ChatbotMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
