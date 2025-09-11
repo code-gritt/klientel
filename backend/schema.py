@@ -99,7 +99,8 @@ class EmailMutation(graphene.Mutation):
 
         try:
             message = Mail(
-                from_email='no-reply@klientel.app',
+                
+                from_email='gokulchandan24@klientel.com',
                 to_emails=lead.email,
                 subject=input.subject,
                 html_content=input.body
