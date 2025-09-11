@@ -12,9 +12,11 @@ from sendgrid.helpers.mail import Mail# type: ignore
 # Configure Gemini API
 configure(api_key="AIzaSyDqxbID4YBbRnVrVMfvuAgRLAyrjG-hs48")
 
-# Configure SendGrid API
-SENDGRID_API_KEY = "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"
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+if not SENDGRID_API_KEY:
+    raise Exception("SendGrid API key not configured")
 sendgrid_client = SendGridAPIClient(SENDGRID_API_KEY)
+
 
 class UserType(SQLAlchemyObjectType):
     class Meta:
