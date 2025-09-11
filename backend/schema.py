@@ -6,9 +6,15 @@ from sqlalchemy.sql import func# type: ignore
 from datetime import datetime
 import os
 from google.generativeai import GenerativeModel, configure# type: ignore
+from sendgrid import SendGridAPIClient# type: ignore
+from sendgrid.helpers.mail import Mail# type: ignore
 
 # Configure Gemini API
 configure(api_key="AIzaSyDqxbID4YBbRnVrVMfvuAgRLAyrjG-hs48")
+
+# Configure SendGrid API
+SENDGRID_API_KEY = "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"
+sendgrid_client = SendGridAPIClient(SENDGRID_API_KEY)
 
 class UserType(SQLAlchemyObjectType):
     class Meta:
@@ -67,6 +73,48 @@ class ChatbotInput(graphene.InputObjectType):
 class LoginInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     password = graphene.String(required=True)
+
+class EmailInput(graphene.InputObjectType):
+    lead_id = graphene.ID(required=True)
+    subject = graphene.String(required=True)
+    body = graphene.String(required=True)
+
+
+class EmailMutation(graphene.Mutation):
+    class Arguments:
+        input = EmailInput(required=True)
+
+    success = graphene.Boolean()
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        lead = Lead.query.filter_by(id=input.lead_id, user_id=user_id).first()
+        if not lead:
+            raise Exception("Lead not found")
+        if not SENDGRID_API_KEY:
+            raise Exception("Email service not configured")
+
+        try:
+            message = Mail(
+                from_email='no-reply@klientel.app',
+                to_emails=lead.email,
+                subject=input.subject,
+                html_content=input.body
+            )
+            response = sendgrid_client.send(message)
+            if response.status_code not in (200, 202):
+                raise Exception(f"Failed to send email: Status {response.status_code}")
+            
+            activity = Activity(
+                user_id=user_id,
+                action=f"Sent email to lead {lead.name}: {input.subject}"
+            )
+            db.session.add(activity)
+            db.session.commit()
+            return EmailMutation(success=True)
+        except Exception as e:
+            raise Exception(f"Failed to send email: {str(e)}")
 
 
 class RegisterMutation(graphene.Mutation):
@@ -473,6 +521,7 @@ class Mutation(graphene.ObjectType):
     deleteTag = DeleteTagMutation.Field()
     assignTagToLead = AssignTagToLeadMutation.Field()
     removeTagFromLead = RemoveTagFromLeadMutation.Field()
+    sendEmail = EmailMutation.Field()
     chatbot = ChatbotMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
