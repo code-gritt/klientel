@@ -8,6 +8,12 @@ import os
 from google.generativeai import GenerativeModel, configure# type: ignore
 from sendgrid import SendGridAPIClient# type: ignore
 from sendgrid.helpers.mail import Mail# type: ignore
+import io
+import base64
+import csv
+from PyPDF2 import PdfWriter # type: ignore
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 # Configure Gemini API
 configure(api_key="AIzaSyDqxbID4YBbRnVrVMfvuAgRLAyrjG-hs48")
@@ -81,7 +87,14 @@ class EmailInput(graphene.InputObjectType):
     subject = graphene.String(required=True)
     body = graphene.String(required=True)
 
+class ExportReportInput(graphene.InputObjectType):
+    format = graphene.String(required=True)  # "pdf" or "csv"
 
+class ExportReportOutput(graphene.ObjectType):
+    file_content = graphene.String()  # Base64-encoded file
+    file_type = graphene.String()    # "pdf" or "csv"
+    file_name = graphene.String()
+    
 class EmailMutation(graphene.Mutation):
     class Arguments:
         input = EmailInput(required=True)
@@ -411,6 +424,120 @@ class ChatbotMutation(graphene.Mutation):
         except Exception as e:
             raise Exception(f"Failed to generate response: {str(e)}")
 
+class ExportReportMutation(graphene.Mutation):
+    class Arguments:
+        input = ExportReportInput(required=True)
+
+    report = graphene.Field(ExportReportOutput)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        format = input.format.lower()
+        if format not in ['pdf', 'csv']:
+            raise Exception("Invalid format. Use 'pdf' or 'csv'.")
+
+        # Fetch pipeline metrics (same logic as resolve_pipeline_metrics)
+        stages = ['New', 'Contacted', 'Qualified', 'Closed']
+        metrics = []
+        lead_counts = (
+            Lead.query.filter_by(user_id=user_id)
+            .group_by(Lead.status)
+            .with_entities(Lead.status, func.count(Lead.id).label('count'))
+            .all()
+        )
+        lead_count_dict = {status: count for status, count in lead_counts}
+
+        for i, status in enumerate(stages):
+            count = lead_count_dict.get(status, 0)
+            conversion_rate = 0.0
+            if i < len(stages) - 1:
+                next_status = stages[i + 1]
+                current_count = lead_count_dict.get(status, 0)
+                next_count = lead_count_dict.get(next_status, 0)
+                conversion_rate = (next_count / current_count * 100) if current_count > 0 else 0.0
+
+            avg_time = 0.0
+            status_changes = (
+                Activity.query.filter_by(user_id=user_id)
+                .filter(Activity.action.contains(f"Changed status to {status}"))
+                .all()
+            )
+            if status_changes:
+                total_days = 0
+                count_changes = 0
+                for change in status_changes:
+                    lead_id = change.action.split('lead: ')[1].split(';')[0]
+                    next_changes = (
+                        Activity.query.filter_by(user_id=user_id)
+                        .filter(Activity.created_at > change.created_at)
+                        .filter(
+                            (Activity.action.contains(f"Changed status from {status}")) |
+                            (Activity.action.contains(f"Deleted lead: {lead_id}"))
+                        )
+                        .order_by(Activity.created_at.asc())
+                        .first()
+                    )
+                    if next_changes:
+                        time_diff = (next_changes.created_at - change.created_at).total_seconds() / (60 * 60 * 24)
+                        total_days += time_diff
+                        count_changes += 1
+                avg_time = total_days / count_changes if count_changes > 0 else 0.0
+
+            metrics.append({
+                'status': status,
+                'lead_count': count,
+                'conversion_rate': round(conversion_rate, 2),
+                'avg_time_in_stage': round(avg_time, 2),
+            })
+
+        # Generate file
+        file_content = ''
+        file_name = f"klientel_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}"
+
+        if format == 'csv':
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['Status', 'Lead Count', 'Conversion Rate (%)', 'Avg Time in Stage (days)'])
+            for metric in metrics:
+                writer.writerow([
+                    metric['status'],
+                    metric['lead_count'],
+                    metric['conversion_rate'],
+                    metric['avg_time_in_stage']
+                ])
+            file_content = base64.b64encode(output.getvalue().encode()).decode()
+            output.close()
+        else:  # pdf
+            buffer = io.BytesIO()
+            c = canvas.Canvas(buffer, pagesize=letter)
+            c.setFont("Helvetica", 12)
+            c.drawString(100, 750, "Klientel Analytics Report")
+            c.drawString(100, 730, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            y = 700
+            c.drawString(100, y, "Status    Lead Count    Conversion Rate (%)    Avg Time in Stage (days)")
+            c.drawString(100, y - 10, "-" * 80)
+            y -= 30
+            for metric in metrics:
+                c.drawString(100, y, f"{metric['status']:<10} {metric['lead_count']:<12} {metric['conversion_rate']:<20} {metric['avg_time_in_stage']}")
+                y -= 20
+            c.showPage()
+            c.save()
+            buffer.seek(0)
+            file_content = base64.b64encode(buffer.getvalue()).decode()
+            buffer.close()
+
+        # Log activity
+        activity = Activity(user_id=user_id, action=f"Exported analytics as {format.upper()}")
+        db.session.add(activity)
+        db.session.commit()
+
+        return ExportReportMutation(report=ExportReportOutput(
+            file_content=file_content,
+            file_type=format,
+            file_name=file_name
+        ))
+    
 class Query(graphene.ObjectType):
     me = graphene.Field(UserType)
     leads = graphene.List(LeadType)
@@ -525,6 +652,7 @@ class Mutation(graphene.ObjectType):
     assignTagToLead = AssignTagToLeadMutation.Field()
     removeTagFromLead = RemoveTagFromLeadMutation.Field()
     sendEmail = EmailMutation.Field()
+    exportReport = ExportReportMutation.Field()
     chatbot = ChatbotMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
