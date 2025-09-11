@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { useAuthStore } from './auth-store';
+import { toast } from 'react-hot-toast';
 
 interface Lead {
   id: string;
@@ -9,21 +10,28 @@ interface Lead {
   email: string;
   status: string;
   createdAt: string;
+  tags: { id: string; name: string }[];
 }
 
 interface LeadState {
   leads: Lead[];
   isLoading: boolean;
   error: string | null;
-  fetchLeads: () => Promise<void>;
-  createLead: (name: string, email: string, status?: string) => Promise<void>;
+  fetchLeads: (tagIds?: string[]) => Promise<void>;
+  createLead: (
+    name: string,
+    email: string,
+    status: string,
+    tagIds?: string[]
+  ) => Promise<void>;
   updateLead: (
     id: string,
     name: string,
     email: string,
-    status?: string
+    status: string,
+    tagIds?: string[]
   ) => Promise<void>;
-  updateLeadStatus: (id: string, status: string) => Promise<void>;
+  updateLeadStatus: (id: string, status: string) => Promise<void>; // ✅ added back
   deleteLead: (id: string) => Promise<void>;
 }
 
@@ -36,7 +44,7 @@ export const useLeadStore = create<LeadState>((set) => ({
   isLoading: false,
   error: null,
 
-  fetchLeads: async () => {
+  fetchLeads: async (tagIds = []) => {
     const { token } = useAuthStore.getState();
     if (!token) {
       set({ error: 'Please log in to view leads', isLoading: false });
@@ -45,38 +53,70 @@ export const useLeadStore = create<LeadState>((set) => ({
     set({ isLoading: true, error: null });
 
     try {
+      // Build query conditionally
+      const query = tagIds.length
+        ? `
+        query Leads($tagIds: [ID!]) {
+          leadsByTags(tagIds: $tagIds) {
+            id
+            name
+            email
+            status
+            createdAt
+            tags {
+              id
+              name
+            }
+          }
+        }
+      `
+        : `
+        query Leads {
+          leads {
+            id
+            name
+            email
+            status
+            createdAt
+            tags {
+              id
+              name
+            }
+          }
+        }
+      `;
+
+      const variables = tagIds.length ? { tagIds } : {};
+
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          query: `
-            query {
-              leads {
-                id
-                name
-                email
-                status
-                createdAt
-              }
-            }
-          `,
-        }),
+        body: JSON.stringify({ query, variables }),
       });
 
       const { data, errors } = await response.json();
       if (errors)
         throw new Error(errors[0]?.message || 'Failed to fetch leads');
-      set({ leads: data?.leads || [], isLoading: false });
+
+      set({
+        leads: tagIds.length ? data?.leadsByTags || [] : data?.leads || [],
+        isLoading: false,
+      });
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
     }
   },
 
-  createLead: async (name: string, email: string, status?: string) => {
+  createLead: async (
+    name: string,
+    email: string,
+    status: string,
+    tagIds: string[] = []
+  ) => {
     const { token } = useAuthStore.getState();
     if (!token) {
       set({ error: 'Please log in to create a lead', isLoading: false });
@@ -101,11 +141,15 @@ export const useLeadStore = create<LeadState>((set) => ({
                   email
                   status
                   createdAt
+                  tags {
+                    id
+                    name
+                  }
                 }
               }
             }
           `,
-          variables: { input: { name, email, status } },
+          variables: { input: { name, email, status, tagIds } },
         }),
       });
 
@@ -116,11 +160,7 @@ export const useLeadStore = create<LeadState>((set) => ({
         leads: [...state.leads, data.createLead.lead],
         isLoading: false,
       }));
-      useAuthStore.setState((state) => ({
-        user: state.user
-          ? { ...state.user, credits: state.user.credits - 1 }
-          : null,
-      }));
+      toast.success('Lead created');
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -131,7 +171,8 @@ export const useLeadStore = create<LeadState>((set) => ({
     id: string,
     name: string,
     email: string,
-    status?: string
+    status: string,
+    tagIds: string[] = []
   ) => {
     const { token } = useAuthStore.getState();
     if (!token) {
@@ -157,11 +198,15 @@ export const useLeadStore = create<LeadState>((set) => ({
                   email
                   status
                   createdAt
+                  tags {
+                    id
+                    name
+                  }
                 }
               }
             }
           `,
-          variables: { id, input: { name, email, status } },
+          variables: { id, input: { name, email, status, tagIds } },
         }),
       });
 
@@ -174,59 +219,33 @@ export const useLeadStore = create<LeadState>((set) => ({
         ),
         isLoading: false,
       }));
+      toast.success('Lead updated');
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
     }
   },
 
+  // ✅ added back for PipelineBoard compatibility
   updateLeadStatus: async (id: string, status: string) => {
     const { token } = useAuthStore.getState();
     if (!token) {
       set({ error: 'Please log in to update a lead', isLoading: false });
       return;
     }
-    set({ isLoading: true, error: null });
 
     try {
       const lead = useLeadStore.getState().leads.find((l) => l.id === id);
       if (!lead) throw new Error('Lead not found');
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          query: `
-            mutation UpdateLead($id: ID!, $input: LeadInput!) {
-              updateLead(id: $id, input: $input) {
-                lead {
-                  id
-                  name
-                  email
-                  status
-                  createdAt
-                }
-              }
-            }
-          `,
-          variables: {
-            id,
-            input: { name: lead.name, email: lead.email, status },
-          },
-        }),
-      });
 
-      const { data, errors } = await response.json();
-      if (errors)
-        throw new Error(errors[0]?.message || 'Failed to update lead status');
-      set((state) => ({
-        leads: state.leads.map((lead) =>
-          lead.id === id ? data.updateLead.lead : lead
-        ),
-        isLoading: false,
-      }));
+      // Reuse updateLead, preserve name/email/tags
+      await useLeadStore.getState().updateLead(
+        id,
+        lead.name,
+        lead.email,
+        status,
+        lead.tags.map((t) => t.id)
+      );
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
@@ -267,6 +286,7 @@ export const useLeadStore = create<LeadState>((set) => ({
         leads: state.leads.filter((lead) => lead.id !== id),
         isLoading: false,
       }));
+      toast.success('Lead deleted');
     } catch (err: any) {
       set({ error: err.message, isLoading: false });
       throw err;
