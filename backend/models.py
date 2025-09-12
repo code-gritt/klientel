@@ -129,3 +129,52 @@ class UserWidget(db.Model):
     width = db.Column(db.Integer, nullable=False)
     height = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Team(db.Model):
+    __tablename__ = "teams"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "createdAt": self.created_at.isoformat(),
+        }
+
+class TeamMember(db.Model):
+    __tablename__ = "team_members"
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey("teams.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    role = db.Column(db.String(50), nullable=False)  # e.g., 'admin', 'viewer'
+    invited_at = db.Column(db.DateTime, default=datetime.utcnow)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "teamId": self.team_id,
+            "userId": self.user_id,
+            "role": self.role,
+            "invitedAt": self.invited_at.isoformat(),
+            "acceptedAt": self.accepted_at.isoformat() if self.accepted_at else None,
+        }
+
+class Comment(db.Model):
+    __tablename__ = "comments"
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "leadId": self.lead_id,
+            "userId": self.user_id,
+            "content": self.content,
+            "createdAt": self.created_at.isoformat(),
+        }

@@ -2,6 +2,7 @@ from flask import Flask  # type: ignore
 from flask_graphql import GraphQLView  # type: ignore
 from flask_jwt_extended import JWTManager  # type: ignore
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from models import db
 from schema import schema
 import os
@@ -31,6 +32,7 @@ app.config['JWT_SECRET_KEY'] = os.getenv(
 # Initialize extensions
 db.init_app(app)
 JWTManager(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Create DB tables if they don't exist
 with app.app_context():
@@ -42,5 +44,37 @@ app.add_url_rule(
     view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True)
 )
 
+# -------------------------------
+# Socket.IO Events
+# -------------------------------
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+@socketio.on('join_lead')
+def handle_join_lead(data):
+    lead_id = data['lead_id']
+    join_room(lead_id)
+    print(f"Client joined room {lead_id}")
+
+@socketio.on('leave_lead')
+def handle_leave_lead(data):
+    lead_id = data['lead_id']
+    leave_room(lead_id)
+    print(f"Client left room {lead_id}")
+
+@socketio.on('add_comment')
+def handle_add_comment(data):
+    lead_id = data['lead_id']
+    emit('new_comment', data, room=lead_id) # type: ignore
+    print(f"New comment added to lead {lead_id}: {data}")
+
+# -------------------------------
+# Run the app with SocketIO
+# -------------------------------
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)

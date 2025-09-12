@@ -1,7 +1,7 @@
 import graphene # type: ignore
 from graphene_sqlalchemy import SQLAlchemyObjectType# type: ignore
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity# type: ignore
-from models import User, Lead, Activity, Note, Tag, LeadTag, UserWidget, db
+from models import User, Lead, Activity, Note, Tag, LeadTag, UserWidget, Team, TeamMember, Comment, db
 from sqlalchemy.sql import func# type: ignore
 from datetime import datetime
 import os
@@ -72,6 +72,25 @@ class TagType(SQLAlchemyObjectType):
         model = Tag
         only_fields = ('id', 'user_id', 'name', 'created_at')
 
+# -----------------------------
+# New types (Team, TeamMember, Comment)
+# -----------------------------
+class TeamType(SQLAlchemyObjectType):
+    class Meta:
+        model = Team
+        only_fields = ('id', 'name', 'created_at')
+
+class TeamMemberType(SQLAlchemyObjectType):
+    class Meta:
+        model = TeamMember
+        only_fields = ('id', 'team_id', 'user_id', 'role', 'invited_at', 'accepted_at')
+
+class CommentType(SQLAlchemyObjectType):
+    class Meta:
+        model = Comment
+        only_fields = ('id', 'lead_id', 'user_id', 'content', 'created_at')
+# -----------------------------
+
 class PipelineMetricsType(graphene.ObjectType):
     status = graphene.String()
     lead_count = graphene.Int()
@@ -113,6 +132,25 @@ class ExportReportOutput(graphene.ObjectType):
     file_content = graphene.String()  # Base64-encoded file
     file_type = graphene.String()    # "pdf" or "csv"
     file_name = graphene.String()
+
+# -----------------------------
+# New inputs for teams/comments
+# -----------------------------
+class TeamInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+
+class InviteMemberInput(graphene.InputObjectType):
+    team_id = graphene.ID(required=True)
+    email = graphene.String(required=True)
+    role = graphene.String(required=True)  # 'admin' or 'viewer'
+
+class AcceptInviteInput(graphene.InputObjectType):
+    invite_id = graphene.ID(required=True)
+
+class CommentInput(graphene.InputObjectType):
+    lead_id = graphene.ID(required=True)
+    content = graphene.String(required=True)
+# -----------------------------
 
 class EmailMutation(graphene.Mutation):
     class Arguments:
@@ -462,6 +500,112 @@ class RemoveTagFromLeadMutation(graphene.Mutation):
         db.session.commit()
         return RemoveTagFromLeadMutation(lead=lead)
 
+# -----------------------------
+# New mutations for teams/comments
+# -----------------------------
+class CreateTeamMutation(graphene.Mutation):
+    class Arguments:
+        input = TeamInput(required=True)
+
+    team = graphene.Field(TeamType)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        team = Team(name=input.name)
+        db.session.add(team)
+        db.session.commit()
+        member = TeamMember(team_id=team.id, user_id=user_id, role='admin', accepted_at=datetime.utcnow())
+        db.session.add(member)
+        db.session.add(Activity(user_id=user_id, action=f"Created team: {input.name}"))
+        db.session.commit()
+        return CreateTeamMutation(team=team)
+
+class InviteMemberMutation(graphene.Mutation):
+    class Arguments:
+        input = InviteMemberInput(required=True)
+
+    member = graphene.Field(TeamMemberType)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        # Only admins can invite
+        team_member = TeamMember.query.filter_by(team_id=input.team_id, user_id=user_id, role='admin').first()
+        if not team_member:
+            raise Exception("Only admins can invite members")
+        invited_user = User.query.filter_by(email=input.email).first()
+        if not invited_user:
+            raise Exception("User not found")
+        if TeamMember.query.filter_by(team_id=input.team_id, user_id=invited_user.id).first():
+            raise Exception("User already in team")
+        member = TeamMember(team_id=input.team_id, user_id=invited_user.id, role=input.role)
+        db.session.add(member)
+        db.session.add(Activity(user_id=user_id, action=f"Invited {input.email} to team as {input.role}"))
+        db.session.commit()
+        # send invitation email
+        try:
+            message = Mail(
+                from_email='gokulchandan24@gmail.com',
+                to_emails=input.email,
+                subject="Invitation to join Klientel Team",
+                html_content=f"You have been invited to join a team on Klientel as {input.role}. Accept at: /accept-invite/{member.id}"
+            )
+            sendgrid_client.send(message)
+        except Exception:
+            # don't crash if email fails — invitation still recorded
+            pass
+        return InviteMemberMutation(member=member)
+
+class AcceptInviteMutation(graphene.Mutation):
+    class Arguments:
+        input = AcceptInviteInput(required=True)
+
+    success = graphene.Boolean()
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        member = TeamMember.query.filter_by(id=input.invite_id, user_id=user_id, accepted_at=None).first()
+        if not member:
+            raise Exception("Invalid or already accepted invite")
+        member.accepted_at = datetime.utcnow()
+        db.session.add(Activity(user_id=user_id, action="Accepted team invitation"))
+        db.session.commit()
+        return AcceptInviteMutation(success=True)
+
+class AddCommentMutation(graphene.Mutation):
+    class Arguments:
+        input = CommentInput(required=True)
+
+    comment = graphene.Field(CommentType)
+
+    @jwt_required()
+    def mutate(self, info, input):
+        user_id = int(get_jwt_identity())
+        lead = Lead.query.filter_by(id=input.lead_id).first()
+        if not lead:
+            raise Exception("Lead not found")
+        # Allow if owner or team member of the lead's team
+        if lead.user_id != user_id:
+            # check team membership if lead has team_id
+            if not getattr(lead, 'team_id', None):
+                raise Exception("No access to this lead")
+            tm = TeamMember.query.filter(
+                TeamMember.team_id == lead.team_id,
+                TeamMember.user_id == user_id,
+                TeamMember.accepted_at.isnot(None)
+            ).first()
+            if not tm:
+                raise Exception("No access to this lead")
+        comment = Comment(lead_id=input.lead_id, user_id=user_id, content=input.content)
+        db.session.add(comment)
+        db.session.add(Activity(user_id=user_id, action=f"Added comment to lead {lead.name}"))
+        db.session.commit()
+        # Optionally emit real-time event if you have socket support (left out here to avoid extra dependency)
+        return AddCommentMutation(comment=comment)
+# -----------------------------
+
 class ChatbotMutation(graphene.Mutation):
     class Arguments:
         input = ChatbotInput(required=True)
@@ -631,6 +775,11 @@ class Query(graphene.ObjectType):
     leads_by_tags = graphene.List(LeadType, tag_ids=graphene.List(graphene.ID))
     user_widgets = graphene.List(UserWidgetType)
 
+    # NEW: teams / team_members / comments
+    teams = graphene.List(TeamType)
+    team_members = graphene.List(TeamMemberType, team_id=graphene.ID(required=True))
+    comments = graphene.List(CommentType, lead_id=graphene.ID(required=True))
+
     @jwt_required()
     def resolve_me(self, info):
         user_id = get_jwt_identity()
@@ -728,6 +877,40 @@ class Query(graphene.ObjectType):
         user_id = get_jwt_identity()
         return UserWidget.query.filter_by(user_id=user_id).all()
 
+    # NEW resolvers
+    @jwt_required()
+    def resolve_teams(self, info):
+        user_id = get_jwt_identity()
+        # Teams where the user is a member (accepted or not)
+        return Team.query.join(TeamMember).filter(TeamMember.user_id == user_id).all()
+
+    @jwt_required()
+    def resolve_team_members(self, info, team_id):
+        user_id = get_jwt_identity()
+        # check access: user must be a member of the team (and ideally accepted)
+        access = TeamMember.query.filter(TeamMember.team_id == team_id, TeamMember.user_id == user_id).first()
+        if not access:
+            raise Exception("No access to this team")
+        return TeamMember.query.filter_by(team_id=team_id).all()
+
+    @jwt_required()
+    def resolve_comments(self, info, lead_id):
+        user_id = get_jwt_identity()
+        lead = Lead.query.filter_by(id=lead_id).first()
+        if not lead:
+            raise Exception("Lead not found")
+        # Allow lead owner
+        if lead.user_id == user_id:
+            return Comment.query.filter_by(lead_id=lead_id).order_by(Comment.created_at.desc()).all()
+        # Otherwise check team membership (if lead has a team_id)
+        team_id = getattr(lead, 'team_id', None)
+        if not team_id:
+            raise Exception("No access to this lead")
+        tm = TeamMember.query.filter(TeamMember.team_id == team_id, TeamMember.user_id == user_id, TeamMember.accepted_at.isnot(None)).first()
+        if not tm:
+            raise Exception("No access to this lead")
+        return Comment.query.filter_by(lead_id=lead_id).order_by(Comment.created_at.desc()).all()
+
 class Mutation(graphene.ObjectType):
     register = RegisterMutation.Field()
     login = LoginMutation.Field()
@@ -746,5 +929,11 @@ class Mutation(graphene.ObjectType):
     updateUserWidget = UpdateUserWidgetMutation.Field()
     deleteUserWidget = DeleteUserWidgetMutation.Field()
     chatbot = ChatbotMutation.Field()
+
+    # NEW mutations
+    createTeam = CreateTeamMutation.Field()
+    inviteMember = InviteMemberMutation.Field()
+    acceptInvite = AcceptInviteMutation.Field()
+    addComment = AddCommentMutation.Field()
 
 schema = graphene.Schema(query=Query, mutation=Mutation)
