@@ -6,6 +6,8 @@ import { useLeadStore } from '@/store/lead-store';
 import { useNoteStore } from '@/store/note-store';
 import { useEmailStore } from '@/store/email-store';
 import { useTagStore } from '@/store/tag-store';
+import { useCommentStore } from '@/store/comment-store';
+import { useActivityStore } from '@/store/activity-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,11 +33,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, Send, Trash2 } from 'lucide-react';
-import { useActivityStore } from '@/store/activity-store';
 import { LoaderFour } from '@/components/ui/loader';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSocket } from '../../../../hooks/use-socket';
 
 export default function LeadDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -54,7 +56,17 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
     isLoading: activitiesLoading,
     fetchActivities,
   } = useActivityStore();
-  const [content, setContent] = useState('');
+  const {
+    comments,
+    isLoading: commentsLoading,
+    fetchComments,
+    addComment,
+  } = useCommentStore();
+
+  const socket = useSocket();
+
+  const [noteContent, setNoteContent] = useState('');
+  const [commentContent, setCommentContent] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [openEmailDialog, setOpenEmailDialog] = useState(false);
@@ -66,13 +78,36 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
     fetchNotes(params.id);
     fetchTags();
     fetchActivities();
-  }, [fetchLeads, fetchNotes, fetchTags, fetchActivities, params.id]);
+    fetchComments(params.id);
+
+    if (!socket) return;
+
+    socket.emit('join_lead', { lead_id: params.id });
+    socket.on('new_comment', (data: { lead_id: string; content: string }) => {
+      addComment(data.lead_id, data.content);
+      toast.success('New comment added in real-time');
+    });
+
+    return () => {
+      socket.emit('leave_lead', { lead_id: params.id });
+      socket.off('new_comment');
+    };
+  }, [
+    fetchLeads,
+    fetchNotes,
+    fetchTags,
+    fetchActivities,
+    fetchComments,
+    addComment,
+    socket,
+    params.id,
+  ]);
 
   const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await createNote(params.id, content);
-      setContent('');
+      await createNote(params.id, noteContent);
+      setNoteContent('');
       toast.success('Note added');
     } catch (err: any) {
       toast.error(err.message);
@@ -86,14 +121,30 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
       setSubject('');
       setBody('');
       setOpenEmailDialog(false);
-      fetchActivities(); // Refresh activities to show new email
+      fetchActivities();
       toast.success('Email sent');
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
-  if (leadsLoading || notesLoading || tagsLoading || activitiesLoading) {
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await addComment(params.id, commentContent);
+      setCommentContent('');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  if (
+    leadsLoading ||
+    notesLoading ||
+    tagsLoading ||
+    activitiesLoading ||
+    commentsLoading
+  ) {
     return <LoaderFour />;
   }
 
@@ -111,10 +162,12 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to Leads
       </Button>
+
       <div className="bg-background/50 backdrop-blur-lg rounded-lg border border-border/80 p-6">
         <h2 className="text-2xl font-semibold mb-4">{lead.name}</h2>
         <p className="text-muted-foreground mb-2">Email: {lead.email}</p>
         <p className="text-muted-foreground mb-2">Status: {lead.status}</p>
+
         <div className="mb-4">
           <span className="text-muted-foreground">Tags: </span>
           {lead.tags.length ? (
@@ -130,23 +183,27 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
             <span className="text-muted-foreground">No tags</span>
           )}
         </div>
+
         <Tabs defaultValue="notes" className="w-full">
           <TabsList className="bg-background/50 border-border/80">
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="emails">Emails</TabsTrigger>
+            <TabsTrigger value="comments">Comments</TabsTrigger>
           </TabsList>
+
+          {/* Notes Tab */}
           <TabsContent value="notes">
             <form onSubmit={handleCreateNote} className="space-y-4 mb-6">
               <Textarea
                 placeholder="Add a note..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
+                value={noteContent}
+                onChange={(e) => setNoteContent(e.target.value)}
               />
               <Button type="submit" disabled={notesLoading}>
                 {notesLoading ? <LoaderFour /> : 'Add Note'}
               </Button>
             </form>
+
             {notes.length ? (
               <Table>
                 <TableHeader>
@@ -187,6 +244,8 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
               <p className="text-center text-muted-foreground">No notes yet</p>
             )}
           </TabsContent>
+
+          {/* Emails Tab */}
           <TabsContent value="emails">
             <Dialog open={openEmailDialog} onOpenChange={setOpenEmailDialog}>
               <DialogTrigger asChild>
@@ -195,7 +254,7 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
                   Send Email
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-background/50 backdrop-blur-lg border border-border/80">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Send Email to {lead.name}</DialogTitle>
                 </DialogHeader>
@@ -204,14 +263,12 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
                     placeholder="Subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
                     required
                   />
                   <Textarea
                     placeholder="Email body"
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    className="focus-visible:ring-0 focus-visible:ring-transparent focus-visible:border-primary"
                     required
                   />
                   <div className="flex justify-end gap-2 mt-2">
@@ -229,9 +286,9 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
                 </form>
               </DialogContent>
             </Dialog>
-            {activities.filter((activity) =>
-              activity.action.includes('Sent email')
-            ).length ? (
+
+            {activities.filter((a) => a.action.includes('Sent email'))
+              .length ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -241,16 +298,14 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
                 </TableHeader>
                 <TableBody>
                   {activities
-                    .filter((activity) =>
-                      activity.action.includes('Sent email')
-                    )
-                    .map((activity) => (
-                      <TableRow key={activity.id}>
+                    .filter((a) => a.action.includes('Sent email'))
+                    .map((a) => (
+                      <TableRow key={a.id}>
                         <TableCell>
-                          {activity.action.split(': ')[1] || 'No subject'}
+                          {a.action.split(': ')[1] || 'No subject'}
                         </TableCell>
                         <TableCell>
-                          {new Date(activity.createdAt).toLocaleString()}
+                          {new Date(a.createdAt).toLocaleString()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -260,6 +315,49 @@ export default function LeadDetails({ params }: { params: { id: string } }) {
               <p className="text-center text-muted-foreground">
                 No emails sent yet
               </p>
+            )}
+          </TabsContent>
+
+          {/* Comments Tab */}
+          <TabsContent value="comments">
+            <form onSubmit={handleAddComment} className="space-y-4 mb-6">
+              <Input
+                placeholder="Add a comment..."
+                value={commentContent}
+                onChange={(e) => setCommentContent(e.target.value)}
+              />
+              <Button type="submit" disabled={commentsLoading}>
+                {commentsLoading ? (
+                  <LoaderFour />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </form>
+
+            {comments.length === 0 ? (
+              <p className="text-center text-muted-foreground">
+                No comments yet
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Content</TableHead>
+                    <TableHead>Created At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {comments.map((comment) => (
+                    <TableRow key={comment.id}>
+                      <TableCell>{comment.content}</TableCell>
+                      <TableCell>
+                        {new Date(comment.createdAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </TabsContent>
         </Tabs>

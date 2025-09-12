@@ -106,6 +106,8 @@ class LeadInput(graphene.InputObjectType):
     email = graphene.String(required=True)
     status = graphene.String()
     tag_ids = graphene.List(graphene.ID)
+    team_id = graphene.ID()   
+
 
 class NoteInput(graphene.InputObjectType):
     content = graphene.String(required=True)
@@ -302,6 +304,7 @@ class CreateLeadMutation(graphene.Mutation):
             name=input.name,
             email=input.email,
             status=input.status or "New",
+            team_id=input.team_id
         )
         db.session.add(lead)
         if input.tag_ids:
